@@ -1,0 +1,666 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- edited with XMLSpy v2016 sp1 (x64) (http://www.altova.com) by Beenu Justus (Aurizon) -->
+<!--Wayside Measurement xml schema definition.  version 1.0.0-->
+<xs:schema xmlns:wm="https://integration.aurizon.com.au/schema/wayside_measurement_railbam/v1.0.2" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:ns1="https://integration.aurizon.com.au/schema/wayside_measurement_railbam/v1.0.2" targetNamespace="https://integration.aurizon.com.au/schema/wayside_measurement_railbam/v1.0.2" elementFormDefault="qualified" attributeFormDefault="unqualified" version="1.0.2">
+	<xs:element name="WaysideMeasurementBearingAcoustics" type="wm:WaysideMeasurementRailBAMType">
+		<xs:annotation>
+			<xs:documentation>The root element of a wayside measurement message.
+Describes the composition of a wayside measurement, such as the source system, location, dates, times, track information, detected number of assets, rollingstock itesm and rollingstock item component details read by the wayside system.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:complexType name="AxleType">
+		<xs:sequence>
+			<xs:element name="Sequence" type="xs:integer" nillable="false">
+				<xs:annotation>
+					<xs:documentation>One-based sequence numbered from the head of the bogie that identifies where in the bogie this axle is located.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="TrainSequence" type="xs:integer" nillable="false">
+				<xs:annotation>
+					<xs:documentation>One-based sequence/position numbered from the head of the Train that identifies where in the Train this axle is located.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="VehicleSequence" type="xs:integer" nillable="false" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>One-based sequence/position numbered from the head of the Vehicle that identifies where in the Vehicle this axle is located.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Speed" type="wm:SpeedType" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Measured speed through the wayside system in kilometres per hour.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Distance" type="wm:LengthType" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Distance between the axle and previous Axle</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="RPM" type="xs:decimal" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Measured revolutions per minute (RPM).</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Wheels" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>List of wheel attached to the Axle</xs:documentation>
+				</xs:annotation>
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Wheel" type="wm:WheelType" maxOccurs="unbounded"/>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="BodyType">
+		<xs:sequence>
+			<xs:element name="System" type="wm:SystemIdentityNameType">
+				<xs:annotation>
+					<xs:documentation>Wayside measurement system details at a measurement site</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Location" type="wm:IdentityNameType" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Deatils about wayside measurement site.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Track" type="xs:integer" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Simple numeric identifier used to distinguish between tracks where there are multiple tracks passing through a wayside measurewment site.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Direction" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>The direction of travel for a train passing through a wayside measurement site.</xs:documentation>
+				</xs:annotation>
+				<xs:simpleType>
+					<xs:restriction base="xs:string">
+						<xs:enumeration value="Down"/>
+						<xs:enumeration value="Up"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:element>
+			<!--New element - RowCreatedUTCDateTime - added to identify the message.  This is per schema recieved from TrakIQ on 25-08-2016 PRD CO#26688498-->
+			<xs:element name="RowCreatedUTCDateTime" type="xs:dateTime" minOccurs="1">
+				<xs:annotation>
+					<xs:documentation>Datetime this data was created in the source system.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Start" type="xs:dateTime" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Start datetime for the wayside measurement.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="End" type="xs:dateTime" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>End datetime for the wayside measurement.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Service" type="wm:ServiceType"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="BogieType">
+		<xs:sequence>
+			<xs:element name="Sequence" type="xs:integer" nillable="false">
+				<xs:annotation>
+					<xs:documentation>One-based sequence numbered from the head of the rollingstock item that identifies where in the rollingstock item this bogie is located.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Axles" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>List of Axles in the Bogie</xs:documentation>
+				</xs:annotation>
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Axle" type="wm:AxleType" maxOccurs="unbounded"/>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="HeadType">
+		<xs:sequence>
+			<xs:element name="Reference" type="wm:ReferenceType">
+				<xs:annotation>
+					<xs:documentation>Unique reference for this message.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Sender" type="wm:IdentityNameType">
+				<xs:annotation>
+					<xs:documentation>The source of the message.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Receivers" type="wm:PartiesType">
+				<xs:annotation>
+					<xs:documentation>A list of subscriber parties that have an interest in this wayside measurement other than the consignee, consignor, or freighter/operator. For example, the Below Rail Network Provider or Providers whose network the train is running over; or the organisation where the train is loaded (such as the mine); or the organisation where the train is unloaded (such as the port); or an Aurizon Application that requires the wayside measurement information.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="IdentityNameType">
+		<xs:sequence>
+			<xs:element name="Identity" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Unique identity of this object.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Name" type="xs:string">
+				<xs:annotation>
+					<xs:documentation>Human-readable name of this object.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="SystemIdentityNameType">
+		<xs:sequence>
+			<xs:element name="Source" type="xs:string">
+				<xs:annotation>
+					<xs:documentation>Rail Provider name who is original source of the message</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Vendor" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Name of the Vendor who provided the device/system</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Maintainer" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Name of the Vendor who maintains the device/system</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Application" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Vendor application Name</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="SoftwareVersion" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Software version of the device/system</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="FirmwareVersion" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Firmware version of the device/system</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="HardwareVersion" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Hardware version of the device/system</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="LengthType">
+		<xs:sequence>
+			<xs:element name="Value">
+				<xs:annotation>
+					<xs:documentation>The length in metres.</xs:documentation>
+				</xs:annotation>
+				<xs:simpleType>
+					<xs:restriction base="xs:decimal">
+						<xs:minInclusive value="0"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:element>
+			<xs:element name="Unit" type="xs:string" fixed="metre">
+				<xs:annotation>
+					<xs:documentation>The unit of measure for the quoted value, fixed to the SI unit for length: metre.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="PartiesType">
+		<xs:sequence>
+			<xs:element name="Receiver" type="wm:PartyType" maxOccurs="unbounded">
+				<xs:annotation>
+					<xs:documentation>A single subscriber to this wayside measurement.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="PartyType">
+		<xs:sequence>
+			<xs:element name="Identity" type="xs:string">
+				<xs:annotation>
+					<xs:documentation>Unique identity for this party.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Name" type="xs:string">
+				<xs:annotation>
+					<xs:documentation>Human-readable description of the party.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Role">
+				<xs:annotation>
+					<xs:documentation>The role this party plays for this service.</xs:documentation>
+				</xs:annotation>
+				<xs:simpleType>
+					<xs:restriction base="xs:string">
+						<xs:enumeration value="Loader"/>
+						<xs:enumeration value="Unloader"/>
+						<xs:enumeration value="Customer"/>
+						<xs:enumeration value="Network Manager"/>
+						<xs:enumeration value="Terminal Manager"/>
+						<xs:enumeration value="Weighbridge"/>
+						<xs:enumeration value="Manufacturer"/>
+						<xs:enumeration value="Other"/>
+						<xs:enumeration value="Operator"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="ReasonType">
+		<xs:sequence>
+			<xs:element name="Type">
+				<xs:annotation>
+					<xs:documentation>The reason type.</xs:documentation>
+				</xs:annotation>
+				<xs:simpleType>
+					<xs:restriction base="xs:string">
+						<xs:enumeration value="Damaged"/>
+						<xs:enumeration value="Faulty"/>
+						<xs:enumeration value="Incorrectly programmed"/>
+						<xs:enumeration value="Interference"/>
+						<xs:enumeration value="Non-existent"/>
+						<xs:enumeration value="Not programmed"/>
+						<xs:enumeration value="Other"/>
+						<xs:enumeration value="Reader faulty"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:element>
+			<xs:element name="Detail" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Additional detail related to the reason.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="ReferenceType">
+		<xs:sequence>
+			<xs:element name="Identity" type="xs:string">
+				<xs:annotation>
+					<xs:documentation>Unique identity for this message.  Technical field - can be a sequential number or random number provided it is unique for each wayside measurement message.
+
+Wayside system generated number that uniquely identifies the set/batch of wayside measurements recorded when a train passes through a wayside measurement system.
+
+Note: This identifier only needs to be unique for each set of measurements, i.e. for each set of measurements yielded from a single train pass through a wayside measurement system.  The target system will assign the globally unique identifier before persisting its data.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="DateTime" type="xs:dateTime">
+				<xs:annotation>
+					<xs:documentation>Unique datetime for this message.  This is the datetime that the message was created.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="RollingstockIdentityType">
+		<xs:sequence>
+			<xs:element name="Class" type="xs:string">
+				<xs:annotation>
+					<xs:documentation>Reference Data Constrained
+The 5-character class of the rollingstock item, as recorded in the asset register and as painted on the vehicle itself.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Number" type="xs:string">
+				<xs:annotation>
+					<xs:documentation>Reference Data Constrained
+The 6-digit number assigned to this rollingstock item, as recorded in the asset register and as painted on the vehicle itself.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="CheckLetter" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>If this is an interstate wagon, this is the check letter associated with the rollingstock item.</xs:documentation>
+				</xs:annotation>
+				<xs:simpleType>
+					<xs:restriction base="xs:string">
+						<xs:length value="1"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:element>
+			<xs:element name="AEI" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>The unique identifier assigned to the rollingstock item, derived from the class and number, and encoded in RFID tags used by the Automatic Equipment Identification system to electronically detect and record the identity of passing rollingstock items.
+
+AEI tags (attached to every vehicle) have a slightly modified version of Vehicle-id, as follows:
+Class is reduced from a maximum of 5 characters to a maximum of four characters, where the first character is then used typically to identify vehicle owner/operator. 
+This means that Class codes of more than 3 characters musrt be modified. 
+The difference between Vehicle-id and the AEI-Vehicle-id cannot, in all cases, be algorithmically resolved, and must therefore be achieved via a cross-reference table.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="RollingstockItemType">
+		<xs:sequence>
+			<xs:element name="Sequence" type="xs:integer" nillable="false">
+				<xs:annotation>
+					<xs:documentation>One based Sequence/Position numbered from the head of the service/Train that identifies where in the servcie/Train this rollingstock item is located.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:choice>
+				<xs:element name="Identity" type="wm:RollingstockIdentityType">
+					<xs:annotation>
+						<xs:documentation>The unique identifier for this rollingstock item across every rollingstock item in the Aurizon fleet and every rollingstock item owned and/or operated by another operator on the Aurizon rail network.</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="Unidentified">
+					<xs:annotation>
+						<xs:documentation>The information related to this rollingstock item being unidentified</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="Reason" type="wm:ReasonType">
+								<xs:annotation>
+									<xs:documentation>The reason for this rollingstock item being unidentified.</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+			</xs:choice>
+			<xs:element name="PowerStatus" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>The powered status of this rollingstock item to indicate if it is a hauling locomotive (powered on), hauled locomotive (powered off ) or wagon (not powered).</xs:documentation>
+				</xs:annotation>
+				<xs:simpleType>
+					<xs:restriction base="xs:string">
+						<xs:enumeration value="Not Powered"/>
+						<xs:enumeration value="Powered Off"/>
+						<xs:enumeration value="Powered On"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:element>
+			<xs:element name="Orientation" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Vehicle orientation within the consist, used to determine direction of travel of the vehicle and to correctly identify vehicle axles.</xs:documentation>
+				</xs:annotation>
+				<xs:simpleType>
+					<xs:restriction base="xs:string">
+						<xs:enumeration value="A End"/>
+						<xs:enumeration value="B End"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:element>
+			<xs:element name="Axles" type="xs:nonNegativeInteger" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>The number of axles detected for this rollingstock item.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Platforms" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>List of platforms in the Vehicle</xs:documentation>
+				</xs:annotation>
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Platform" maxOccurs="unbounded">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="Sequence" type="xs:positiveInteger" nillable="false">
+										<xs:annotation>
+											<xs:documentation>One-based sequence numbered from the head of the rollingstock item that identifies where in the rollingstock item this platform is located.</xs:documentation>
+										</xs:annotation>
+									</xs:element>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+			<xs:element name="Bogies">
+				<xs:annotation>
+					<xs:documentation>List of individual Bogies in the Vehicle</xs:documentation>
+				</xs:annotation>
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Bogie" type="wm:BogieType" maxOccurs="unbounded"/>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="RollingstockType">
+		<xs:sequence>
+			<xs:element name="Item" type="wm:RollingstockItemType" maxOccurs="unbounded">
+				<xs:annotation>
+					<xs:documentation>The list of individual item whose order matches the physical order of rollingstock items on the freight service.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="ServiceType">
+		<xs:sequence>
+			<xs:element name="Reference" type="wm:ServiceReferenceType" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Unique reference for this service.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="RollingStocks" type="xs:nonNegativeInteger" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>The number of locomotives and wagons detected on a train passing though a wayside measurement system.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Locos" type="xs:nonNegativeInteger" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>The number of locomotives detected on a train passing though a wayside measurement system.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Wagons" type="xs:nonNegativeInteger" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>The number of wagons detected on a train passing though a wayside measurement system.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Platforms" type="xs:nonNegativeInteger" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>The number of platforms detected on a train passing though a wayside measurement system.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Axles" type="xs:nonNegativeInteger" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>The number of axles detected on a train passing though a wayside measurement system.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Length" type="wm:LengthType" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Length of the train</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Speed" type="wm:SpeedType" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Speed of the train</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="EntrySpeed" type="wm:SpeedType" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Entry Speed of the train at the wayside site</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="ExitSpeed" type="wm:SpeedType" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Exit Speed of the train at the wayside site</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Rollingstock" type="wm:RollingstockType">
+				<xs:annotation>
+					<xs:documentation>List of the individual rollingstock that comprise this freight service.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="ServiceReferenceType">
+		<xs:sequence>
+			<xs:element name="Identity" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Service identity.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Date" type="xs:date" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Servcie date.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="TrainNumber" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Train number.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="UTCTrainUID" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Universal Train Control Unique Identifier for a Train, specific to Aurizon Network’</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="UTCTrainNumber" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Universal Train Control Train Number for a Train, specific to Aurizon Network’</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="SpeedType">
+		<xs:sequence>
+			<xs:element name="Value">
+				<xs:annotation>
+					<xs:documentation>The speed in kilometres per hour.</xs:documentation>
+				</xs:annotation>
+				<xs:simpleType>
+					<xs:restriction base="xs:decimal"/>
+				</xs:simpleType>
+			</xs:element>
+			<xs:element name="Unit" type="xs:string" fixed="kilometre per hour">
+				<xs:annotation>
+					<xs:documentation>The unit of measure for the quoted value, fixed to the combined derived prefixed SI unit and non-SI unit for speed: kilometre per hour.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="SoundType">
+		<xs:sequence>
+			<xs:element name="Value">
+				<xs:annotation>
+					<xs:documentation>The sound intensity measured in decibel dB.</xs:documentation>
+				</xs:annotation>
+				<xs:simpleType>
+					<xs:restriction base="xs:decimal">
+						<xs:minInclusive value="0"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:element>
+			<xs:element name="Unit" type="xs:string" fixed="decibel">
+				<xs:annotation>
+					<xs:documentation>The unit of measure for the quoted value, fixed to decibel.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="WaysideMeasurementRailBAMType">
+		<xs:sequence>
+			<xs:element name="Head" type="wm:HeadType">
+				<xs:annotation>
+					<xs:documentation>Meta-data that describes the message.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Body" type="wm:BodyType">
+				<xs:annotation>
+					<xs:documentation>Main content of the message.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="WheelType">
+		<xs:sequence>
+			<xs:element name="Sequence" type="xs:integer" nillable="false">
+				<xs:annotation>
+					<xs:documentation>One-based sequence numbered from the head of the axle that identifies where in the axle this wheel is located.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Side" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Left/Right with respect to the  Vehicle.</xs:documentation>
+				</xs:annotation>
+				<xs:simpleType>
+					<xs:restriction base="xs:string">
+						<xs:enumeration value="Left"/>
+						<xs:enumeration value="Right"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:element>
+			<xs:element name="Diameter" type="wm:LengthType" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Wheel diameter in meters.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="WheelSeverity" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Wheel Severity code</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="BearingSeverity" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Bearing Severity code</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="RMSBand" type="wm:SoundType" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>RMS [dB] of noise in the bearing fault frequency band for the bearing.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="RMSTotal" type="wm:SoundType" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Total rms [dB] of noise for this wheel/bearing.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="LooseFretting" type="wm:SoundType" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Measure (a certain signal level) [dB] for LF fault ranking.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Roller" type="wm:SoundType" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Measure [dB] used for roller fault ranking.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Cup" type="wm:SoundType" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Fault measure [dB] used for cup fault ranking.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Cone" type="wm:SoundType" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Fault measure [dB] used for cone fault ranking.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Noisy" type="wm:SoundType" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Measure [dB] used for identifying a wheel as 'noisy'.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="RMSBandWheetFlat" type="wm:SoundType" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>RMS [dB] of noise in the wheelflat frequency band for the wheel.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="WheetFlat" type="wm:SoundType" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Measure (a certain signal level) [dB] used for wheelflat ranking.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="Spectrum" type="xs:string" minOccurs="0" maxOccurs="unbounded">
+				<xs:annotation>
+					<xs:documentation>Measure of fault spectrum acquired for each pass-by of the bearing</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="BearingConsistency" minOccurs="0">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Value" type="xs:float" minOccurs="0">
+							<xs:annotation>
+								<xs:documentation>consistency of rail bearing acoustics for a given wheel</xs:documentation>
+							</xs:annotation>
+						</xs:element>
+						<xs:element name="ExponentialMovingAverage" type="xs:float" minOccurs="0"/>
+						<xs:element name="IsConsistent" type="xs:boolean" minOccurs="0"/>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+</xs:schema>
