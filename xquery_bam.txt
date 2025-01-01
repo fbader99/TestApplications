@@ -1,0 +1,443 @@
+xquery version "1.0" encoding "utf-8";
+
+(:: OracleAnnotationVersion "1.0" ::)
+
+declare namespace bam="http://pacificnational.com.au/FleetOneBearingAcoustics";
+(:: import schema at "../schema/FleetOneBearingAcoustics_JSON.xsd" ::)
+declare namespace wm="https://integration.aurizon.com.au/schema/wayside_measurement_railbam/v1.0.2";
+(:: import schema at "../schema/Wayside_Measurement_Bearing_Acoustics__v1.0.2.xsd" ::)
+
+declare variable $AurizonBearingAcoustics as element() (:: schema-element(wm:WaysideMeasurementBearingAcoustics) ::) external;
+
+declare function local:left-pad-string-to-length
+  ( $stringToPad as xs:string? ,
+    $padChar as xs:string ,
+    $length as xs:integer )  as xs:string {
+
+    let $paddedString := string-join((for $i in (1 to $length) return $padChar, $stringToPad),'')
+    return
+      substring($paddedString, (fn:string-length($paddedString) - $length + 1), $length)
+};
+
+declare function local:generateWagonCheckSum($inputWagonClass as xs:string, $inputWagonNumber as xs:string) as xs:string {
+    (: Format input :)
+    let $wagonClass := replace(replace($inputWagonClass,'\s+$',''),'^\s+','') (: Remove leading and trailing spaces :)
+    let $wagonNumber := replace(replace($inputWagonNumber,'\s+$',''),'^\s+','') (: Remove leading and trailing spaces :)
+    return
+      (: Validate input :)
+      if(fn:matches($wagonClass, '^[A-Z]{1,4}$') and fn:matches($wagonNumber, '^[0-9]{5}$')) then
+  
+        let $albet := ('A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z')
+        let $checkSumChars := ('A','B','C','D','E','F','G','H','X','J','K','L','M','N','Y','P','Q','R','S','T','U','V','W','X','Y','Z') 
+        (: $checkSumChars is like the alphabet except I is replaced with X, O with Y:)
+        let $classSum := sum( for $i in (1 to fn:string-length($wagonClass)) return $i * fn:index-of($albet,fn:substring($wagonClass,$i,1)))
+        let $numSum := sum( for $i in (1 to fn:string-length($wagonNumber)) return ($i + 4) * xs:int(fn:substring($wagonNumber,$i,1)))
+        let $index := (($classSum + $numSum) mod 23) + 1
+        
+        return $checkSumChars[$index]
+      else ''
+};
+
+declare function local:AurizonBearingAcoustics_to_FleetOneBearingAcousticsJSON($AurizonBearingAcoustics as element() (:: schema-element(wm:WaysideMeasurementBearingAcoustics) ::)) as element() (:: schema-element(bam:FleetOneBearingAcoustics) ::) {
+    (: Consolidate rollingstock that are within a multi-pack (multiple wagons semi-permanently joined which share a Wagon ID) :)
+    (: e.g. RNAY000028a, RNAY000028b, RNAY000028c are all within one multi-pack with Wagon ID RNAY000028 :)
+    (: These will be consolidated under one Wagon (known as an 'Item' in this schema) :)
+    
+    (: Determine distinct rollingstock :)
+    let $RollingstockIds := for $item in $AurizonBearingAcoustics/wm:Body/wm:Service/wm:Rollingstock/wm:Item 
+                            let $itemClass := string($item/wm:Identity/wm:Class)
+                            let $itemNumber := string($item/wm:Identity/wm:Number)
+                            return fn:concat($itemClass,fn:replace($itemNumber,'[a-z]','')) (: Strip any multipack id e.g. RNAY000028a -> RNAY000028b :)
+    let $DistinctRollingstockIds := fn:distinct-values($RollingstockIds)
+    let $SequenceOffset := fn:data($AurizonBearingAcoustics/wm:Body/wm:Service/wm:Rollingstock/wm:Item[1]/wm:Sequence) 
+    (: Sequence of the first rollingstock, which does not always start at 1, sequences should be offset by this number :)
+    return
+    <bam:FleetOneBearingAcoustics>
+        <bam:WaysideMeasurementBearingAcoustics>
+            <bam:Head>
+                <bam:Reference>
+                    <bam:Identity>{fn:data($AurizonBearingAcoustics/wm:Head/wm:Reference/wm:Identity)}</bam:Identity>
+                    <bam:DateTime>{fn:data($AurizonBearingAcoustics/wm:Head/wm:Reference/wm:DateTime)}</bam:DateTime>
+                </bam:Reference>
+                <bam:Sender>
+                    {
+                        if ($AurizonBearingAcoustics/wm:Head/wm:Sender/wm:Identity)
+                        then <bam:Identity>{fn:data($AurizonBearingAcoustics/wm:Head/wm:Sender/wm:Identity)}</bam:Identity>
+                        else ()
+                    }
+                    <bam:Name>{fn:data($AurizonBearingAcoustics/wm:Head/wm:Sender/wm:Name)}</bam:Name>
+                </bam:Sender>
+                <bam:Receivers>
+                {
+                    for $Receiver in $AurizonBearingAcoustics/wm:Head/wm:Receivers/wm:Receiver
+                    return
+                    <bam:Receiver>
+                        <bam:Identity>{fn:data($Receiver/wm:Identity)}</bam:Identity>
+                        <bam:Name>{fn:data($Receiver/wm:Name)}</bam:Name>
+                        <bam:Role>{fn:data($Receiver/wm:Role)}</bam:Role>
+                    </bam:Receiver>
+                }
+                </bam:Receivers>
+            </bam:Head>
+            <bam:Body>
+                <bam:System>
+                    <bam:Source>{fn:data($AurizonBearingAcoustics/wm:Body/wm:System/wm:Source)}</bam:Source>
+                    <bam:Vendor>{fn:data($AurizonBearingAcoustics/wm:Body/wm:System/wm:Vendor)}</bam:Vendor>
+                    <bam:Maintainer>{fn:data($AurizonBearingAcoustics/wm:Body/wm:System/wm:Maintainer)}</bam:Maintainer>
+                    <bam:Application>{fn:data($AurizonBearingAcoustics/wm:Body/wm:System/wm:Application)}</bam:Application>
+                    {
+                        if ($AurizonBearingAcoustics/wm:Body/wm:System/wm:SoftwareVersion)
+                        then <bam:SoftwareVersion>{fn:data($AurizonBearingAcoustics/wm:Body/wm:System/wm:SoftwareVersion)}</bam:SoftwareVersion>
+                        else ()
+                    }
+                    {
+                        if ($AurizonBearingAcoustics/wm:Body/wm:System/wm:FirmwareVersion)
+                        then <bam:FirmwareVersion>{fn:data($AurizonBearingAcoustics/wm:Body/wm:System/wm:FirmwareVersion)}</bam:FirmwareVersion>
+                        else ()
+                    }
+                    {
+                        if ($AurizonBearingAcoustics/wm:Body/wm:System/wm:HardwareVersion)
+                        then <bam:HardwareVersion>{fn:data($AurizonBearingAcoustics/wm:Body/wm:System/wm:HardwareVersion)}</bam:HardwareVersion>
+                        else ()
+                    }
+                </bam:System>
+                <bam:Location>
+                    {
+                        if ($AurizonBearingAcoustics/wm:Body/wm:Location/wm:Identity)
+                        then <bam:Identity>{fn:data($AurizonBearingAcoustics/wm:Body/wm:Location/wm:Identity)}</bam:Identity>
+                        else ()
+                    }
+                    <bam:Name>{fn:data($AurizonBearingAcoustics/wm:Body/wm:Location/wm:Name)}</bam:Name>
+                </bam:Location>
+                {
+                    if ($AurizonBearingAcoustics/wm:Body/wm:Track)
+                    then <bam:Track>{fn:data($AurizonBearingAcoustics/wm:Body/wm:Track)}</bam:Track>
+                    else ()
+                }
+                {
+                    if ($AurizonBearingAcoustics/wm:Body/wm:Direction)
+                    then <bam:Direction>{fn:data($AurizonBearingAcoustics/wm:Body/wm:Direction)}</bam:Direction>
+                    else ()
+                }
+                <bam:RowCreatedUTCDateTime>{fn:data($AurizonBearingAcoustics/wm:Body/wm:RowCreatedUTCDateTime)}</bam:RowCreatedUTCDateTime>
+                {
+                    if ($AurizonBearingAcoustics/wm:Body/wm:Start)
+                    then <bam:Start>{fn:data($AurizonBearingAcoustics/wm:Body/wm:Start)}</bam:Start>
+                    else ()
+                }
+                {
+                    if ($AurizonBearingAcoustics/wm:Body/wm:End)
+                    then <bam:End>{fn:data($AurizonBearingAcoustics/wm:Body/wm:End)}</bam:End>
+                    else ()
+                }
+                <bam:Service>
+                    {
+                        if ($AurizonBearingAcoustics/wm:Body/wm:Service/wm:RollingStocks)
+                        then <bam:RollingStocks>{fn:data($AurizonBearingAcoustics/wm:Body/wm:Service/wm:RollingStocks)}</bam:RollingStocks>
+                        else ()
+                    }
+                    {
+                        if ($AurizonBearingAcoustics/wm:Body/wm:Service/wm:Axles)
+                        then <bam:Axles>{fn:data($AurizonBearingAcoustics/wm:Body/wm:Service/wm:Axles)}</bam:Axles>
+                        else ()
+                    }
+                    {
+                        if ($AurizonBearingAcoustics/wm:Body/wm:Service/wm:Length)
+                        then <bam:Length>
+                            <bam:Value>{fn:data($AurizonBearingAcoustics/wm:Body/wm:Service/wm:Length/wm:Value)}</bam:Value>
+                            <bam:Unit>{fn:data($AurizonBearingAcoustics/wm:Body/wm:Service/wm:Length/wm:Unit)}</bam:Unit></bam:Length>
+                        else ()
+                    }
+                    {
+                        if ($AurizonBearingAcoustics/wm:Body/wm:Service/wm:Speed)
+                        then <bam:Speed>
+                            <bam:Value>{fn:data($AurizonBearingAcoustics/wm:Body/wm:Service/wm:Speed/wm:Value)}</bam:Value>
+                            <bam:Unit>{fn:data($AurizonBearingAcoustics/wm:Body/wm:Service/wm:Speed/wm:Unit)}</bam:Unit></bam:Speed>
+                        else ()
+                    }
+                    {
+                        if ($AurizonBearingAcoustics/wm:Body/wm:Service/wm:EntrySpeed)
+                        then <bam:EntrySpeed>
+                            <bam:Value>{fn:data($AurizonBearingAcoustics/wm:Body/wm:Service/wm:EntrySpeed/wm:Value)}</bam:Value>
+                            <bam:Unit>{fn:data($AurizonBearingAcoustics/wm:Body/wm:Service/wm:EntrySpeed/wm:Unit)}</bam:Unit></bam:EntrySpeed>
+                        else ()
+                    }
+                    {
+                        if ($AurizonBearingAcoustics/wm:Body/wm:Service/wm:ExitSpeed)
+                        then <bam:ExitSpeed>
+                            <bam:Value>{fn:data($AurizonBearingAcoustics/wm:Body/wm:Service/wm:ExitSpeed/wm:Value)}</bam:Value>
+                            <bam:Unit>{fn:data($AurizonBearingAcoustics/wm:Body/wm:Service/wm:ExitSpeed/wm:Unit)}</bam:Unit>
+                        </bam:ExitSpeed>
+                        else ()
+                    }
+                    <bam:Rollingstock>
+                    {
+                        (: ROLLINGSTOCK CONSOLIDATION :)
+                                    
+                        (: Loop through and consolidate Bogies :)
+                        for $RollingstockId at $RollingstockSequence in $DistinctRollingstockIds
+                        (: Wagon ID RNAY000028 is contained within RNAY000028a, RNAY000028b and therefore are part of a multipack :)
+                        let $Items := $AurizonBearingAcoustics/wm:Body/wm:Service/wm:Rollingstock/wm:Item[fn:contains(concat(wm:Identity/wm:Class,wm:Identity/wm:Number),$RollingstockId)]
+                        let $FirstItem := $Items[1] (: First item in collection of rollingstock, can be used for any common elements e.g. Wagon Identity :)
+                        return
+                        <bam:Item>
+                            <bam:Sequence>
+                            { 
+                                $RollingstockSequence + $SequenceOffset - 1 
+                                (: Sequence Adjustment, sequence may start at a number greater than 1 and all sequences should be adjusted by this offset :) 
+                            }
+                            </bam:Sequence>
+                            {
+                                let $VehicleClass := fn:replace($FirstItem/wm:Identity/wm:Class,'\s+','')
+                                let $isLoco := (dvmtr:lookup("BI.Common/resources/dvm/VehicleIDCodes.dvm", "LS_LC_CODE", $VehicleClass, "Vehicle_ID", "") != "")
+                                return
+                                if($FirstItem/wm:Identity)
+                                then
+                                    if($isLoco)
+                                    then
+                                        (: Loco Mapping :)
+                                        <bam:Identity>
+                                            <bam:Class>{ $VehicleClass }</bam:Class>
+                                            <bam:Number>{ fn:concat(' ',local:left-pad-string-to-length(fn:replace($FirstItem/wm:Identity/wm:Number,'\s+',''),'0', 6)) }</bam:Number>
+                                            {
+                                                if ($FirstItem/wm:Identity/wm:AEI)
+                                                then <bam:AEI>{fn:data($FirstItem/wm:Identity/wm:AEI)}</bam:AEI>
+                                                else ()
+                                            }
+                                        </bam:Identity>
+                                    else
+                                        let $WagonNumberClean := fn:replace($FirstItem/wm:Identity/wm:Number,'[a-z]','') (: Wagon Number with multi-pack id removed :)
+                                        let $WagonNumber := local:left-pad-string-to-length($WagonNumberClean,'0', 5) (: Pad with zeroes and left trim wagon number up to length of 5 chars :)
+                                        return
+                                        (: Wagon Mapping :)
+                                        <bam:Identity>
+                                            <bam:Class>{ $VehicleClass }</bam:Class>
+                                            <bam:Number>{ $WagonNumber }</bam:Number>
+                                            {
+                                                if ($FirstItem/wm:Identity/wm:CheckLetter)
+                                                then <bam:CheckLetter>{fn:data($FirstItem/wm:Identity/wm:CheckLetter)}</bam:CheckLetter>
+                                                else <bam:CheckLetter>{local:generateWagonCheckSum($VehicleClass,$WagonNumber)}</bam:CheckLetter>
+                                            }
+                                            {
+                                                if ($FirstItem/wm:Identity/wm:AEI)
+                                                then <bam:AEI>{fn:data($FirstItem/wm:Identity/wm:AEI)}</bam:AEI>
+                                                else ()
+                                            }
+                                        </bam:Identity>
+                                else if ($FirstItem/wm:Unidentified) then
+                                    <bam:Unidentified>
+                                        <bam:Reason>
+                                            <bam:Type>{ data($FirstItem/wm:Unidentified/*:Reason/*:Type) }</bam:Type>
+                                            <bam:Detail>{ data($FirstItem/wm:Unidentified/*:Reason/*:Detail) }</bam:Detail>
+                                        </bam:Reason>
+                                    </bam:Unidentified>
+                                else ()
+                            }
+                            {
+                                if ($FirstItem/wm:Orientation)
+                                then <bam:Orientation>{fn:data($FirstItem/wm:Orientation)}</bam:Orientation>
+                                else ()
+                            }
+                            {
+                                if (fn:count($Items/wm:Axles) > 0)
+                                then <bam:Axles>{fn:sum($Items/wm:Axles)}</bam:Axles>
+                                else ()
+                            }
+                            <bam:Bogies>
+                            {
+                                for $Bogie at $BogiePos in $Items/wm:Bogies/wm:Bogie
+                                return 
+                                <bam:Bogie>
+                                    <bam:Sequence>{fn:data($Bogie/wm:Sequence)}</bam:Sequence>
+                                    <bam:Axles>
+                                    {
+                                        for $Axle at $AxlePos in $Bogie/wm:Axles/wm:Axle
+                                        let $totalAxlesInPreviousBogies :=
+                                            fn:sum(
+                                              for $bogie at $bogiePos in $Items/wm:Bogies/wm:Bogie
+                                              where $bogiePos < $BogiePos
+                                              return fn:count($bogie/wm:Axles/wm:Axle)
+                                            )
+                                        let $totalAxlesInMultiPack := 
+                                            if (fn:data($FirstItem/wm:Orientation) = "A End") then
+                                                fn:sum($Items/wm:Axles)
+                                            else
+                                              ""
+                                        return
+                                        <bam:Axle>
+                                            {
+                                                if (fn:data($FirstItem/wm:Orientation) = "B End") then
+                                                    (: For "B End" axles are counted from 1,2,3,4,5... :)
+                                                    <bam:Sequence>{ (xs:int($Axle/wm:Sequence) + xs:int($totalAxlesInPreviousBogies)) }</bam:Sequence>
+                                                else
+                                                    (: For "A End" axles are counted from 5,4,3,2,1... :)
+                                                    <bam:Sequence>{ (xs:int($totalAxlesInMultiPack) - xs:int($AxlePos) + 1 - xs:int($totalAxlesInPreviousBogies)) }</bam:Sequence>
+                                            }
+                                            <bam:TrainSequence>{fn:data($Axle/wm:TrainSequence)}</bam:TrainSequence>
+                                            {
+                                                if (fn:data($FirstItem/wm:Orientation) = "B End") then
+                                                    (: For "B End" axles are counted from 1,2,3,4,5... :)
+                                                    <bam:VehicleSequence>{(xs:int($Axle/wm:Sequence) + xs:int($totalAxlesInPreviousBogies))}</bam:VehicleSequence>
+                                                else
+                                                    (: For "A End" axles are counted from 5,4,3,2,1... :)
+                                                    <bam:VehicleSequence>{ (xs:int($totalAxlesInMultiPack) - xs:int($AxlePos) + 1 - xs:int($totalAxlesInPreviousBogies)) }</bam:VehicleSequence>
+                                            }
+                                            <bam:Speed>
+                                                <bam:Value>{fn:data($Axle/wm:Speed/wm:Value)}</bam:Value>
+                                                <bam:Unit>{fn:data($Axle/wm:Speed/wm:Unit)}</bam:Unit>
+                                            </bam:Speed>
+                                            <bam:Distance>
+                                                <bam:Value>{fn:data($Axle/wm:Distance/wm:Value)}</bam:Value>
+                                                <bam:Unit>{fn:data($Axle/wm:Distance/wm:Unit)}</bam:Unit>
+                                            </bam:Distance>
+                                            <bam:RPM>{fn:data($Axle/wm:RPM)}</bam:RPM>
+                                               <bam:Wheels>
+                                               {
+                                                  for $Wheel in $Axle/wm:Wheels/wm:Wheel
+                                                  return
+                                                  <bam:Wheel>
+                                                        <bam:Sequence>{fn:data($Wheel/wm:Sequence)}</bam:Sequence>
+                                                        {
+                                                            if($Wheel/wm:Side)
+                                                            then <bam:Side>{fn:data($Wheel/wm:Side)}</bam:Side>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            if($Wheel/wm:Diameter)
+                                                            then 
+                                                            <bam:Diameter>
+                                                                <bam:Value>{fn:data($Wheel/wm:Diameter/wm:Value)}</bam:Value>
+                                                                <bam:Unit>{fn:data($Wheel/wm:Diameter/wm:Unit)}</bam:Unit>
+                                                            </bam:Diameter>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            if($Wheel/wm:WheelSeverity)
+                                                            then
+                                                            <bam:WheelSeverity>{fn:data($Wheel/wm:WheelSeverity)}</bam:WheelSeverity>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            if($Wheel/wm:BearingSeverity)
+                                                            then <bam:BearingSeverity>{fn:data($Wheel/wm:BearingSeverity)}</bam:BearingSeverity>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            if($Wheel/wm:RMSBand)
+                                                            then
+                                                            <bam:RMSBand>
+                                                                <bam:Value>{fn:data($Wheel/wm:RMSBand/wm:Value)}</bam:Value>
+                                                                <bam:Unit>{fn:data($Wheel/wm:RMSBand/wm:Unit)}</bam:Unit>
+                                                            </bam:RMSBand>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            if($Wheel/wm:RMSTotal)
+                                                            then
+                                                            <bam:RMSTotal>
+                                                                <bam:Value>{fn:data($Wheel/wm:RMSTotal/wm:Value)}</bam:Value>
+                                                                <bam:Unit>{fn:data($Wheel/wm:RMSTotal/wm:Unit)}</bam:Unit>
+                                                            </bam:RMSTotal>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            if($Wheel/wm:LooseFretting)
+                                                            then
+                                                            <bam:LooseFretting>
+                                                                <bam:Value>{fn:data($Wheel/wm:LooseFretting/wm:Value)}</bam:Value>
+                                                                <bam:Unit>{fn:data($Wheel/wm:LooseFretting/wm:Unit)}</bam:Unit>
+                                                            </bam:LooseFretting>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            if($Wheel/wm:Roller)
+                                                            then
+                                                            <bam:Roller>
+                                                                <bam:Value>{fn:data($Wheel/wm:Roller/wm:Value)}</bam:Value>
+                                                                <bam:Unit>{fn:data($Wheel/wm:Roller/wm:Unit)}</bam:Unit>
+                                                            </bam:Roller>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            if($Wheel/wm:Cup)
+                                                            then
+                                                            <bam:Cup>
+                                                                <bam:Value>{fn:data($Wheel/wm:Cup/wm:Value)}</bam:Value>
+                                                                <bam:Unit>{fn:data($Wheel/wm:Cup/wm:Unit)}</bam:Unit>
+                                                            </bam:Cup>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            if($Wheel/wm:Cone)
+                                                            then
+                                                            <bam:Cone>
+                                                                <bam:Value>{fn:data($Wheel/wm:Cone/wm:Value)}</bam:Value>
+                                                                <bam:Unit>{fn:data($Wheel/wm:Cone/wm:Unit)}</bam:Unit>
+                                                            </bam:Cone>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            if($Wheel/wm:Noisy)
+                                                            then
+                                                            <bam:Noisy>
+                                                                <bam:Value>{fn:data($Wheel/wm:Noisy/wm:Value)}</bam:Value>
+                                                                <bam:Unit>{fn:data($Wheel/wm:Noisy/wm:Unit)}</bam:Unit>
+                                                            </bam:Noisy>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            if($Wheel/wm:RMSBandWheetFlat)
+                                                            then
+                                                            <bam:RMSBandWheetFlat>
+                                                                <bam:Value>{fn:data($Wheel/wm:RMSBandWheetFlat/wm:Value)}</bam:Value>
+                                                                <bam:Unit>{fn:data($Wheel/wm:RMSBandWheetFlat/wm:Unit)}</bam:Unit>
+                                                            </bam:RMSBandWheetFlat>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            if($Wheel/wm:WheetFlat)
+                                                            then
+                                                            <bam:WheetFlat>
+                                                                <bam:Value>{fn:data($Wheel/wm:WheetFlat/wm:Value)}</bam:Value>
+                                                                <bam:Unit>{fn:data($Wheel/wm:WheetFlat/wm:Unit)}</bam:Unit>
+                                                            </bam:WheetFlat>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            for $Spectrum in $Wheel/wm:Spectrum
+                                                            return
+                                                            <bam:Spectrum>{fn:data($Spectrum)}</bam:Spectrum>
+                                                        }
+                                                        {
+                                                            if($Wheel/wm:BearingConsistency)
+                                                            then
+                                                            <bam:BearingConsistency>
+                                                                <bam:Value>{fn:data($Wheel/wm:BearingConsistency/wm:Value)}</bam:Value>
+                                                                {
+                                                                    if($Wheel/wm:BearingConsistency/wm:ExponentialMovingAverage)
+                                                                    then <bam:ExponentialMovingAverage>{fn:data($Wheel/wm:BearingConsistency/wm:ExponentialMovingAverage)}</bam:ExponentialMovingAverage>
+                                                                    else()
+                                                                }
+                                                                <bam:IsConsistent>{fn:data($Wheel/wm:BearingConsistency/wm:IsConsistent)}</bam:IsConsistent>
+                                                            </bam:BearingConsistency>
+                                                            else ()
+                                                        }
+                                                    </bam:Wheel>
+                                               }
+                                              </bam:Wheels>
+                                        </bam:Axle>
+                                    }
+                                    </bam:Axles>
+                                </bam:Bogie>
+                            }
+                            </bam:Bogies>
+                        </bam:Item>
+                    }
+                    </bam:Rollingstock>
+                </bam:Service>
+            </bam:Body>
+        </bam:WaysideMeasurementBearingAcoustics>
+    </bam:FleetOneBearingAcoustics>
+};
+
+local:AurizonBearingAcoustics_to_FleetOneBearingAcousticsJSON($AurizonBearingAcoustics)
