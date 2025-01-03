@@ -1,0 +1,350 @@
+xquery version "1.0" encoding "utf-8";
+
+(:: OracleAnnotationVersion "1.0" ::)
+
+declare namespace hbd="http://pacificnational.com.au/FleetOneBearingTemperature";
+(:: import schema at "../schema/FleetOneBearingTemperature_JSON.xsd" ::)
+declare namespace wm="https://integration.aurizon.com.au/schema/wayside_measurement_hbdhwd/v1.0.1";
+(:: import schema at "../schema/Wayside_Measurement_Axle_Box_Wheel_Bearing_Temperature__v1.0.1.xsd" ::)
+
+declare variable $AurizonBearingTemperature as element() (:: schema-element(wm:WaysideMeasurementAxleBoxWheelBearingTemperature) ::) external;
+
+declare function local:left-pad-string-to-length
+  ( $stringToPad as xs:string? ,
+    $padChar as xs:string ,
+    $length as xs:integer )  as xs:string {
+
+    let $paddedString := string-join((for $i in (1 to $length) return $padChar, $stringToPad),'')
+    return
+      substring($paddedString, (fn:string-length($paddedString) - $length + 1), $length)
+};
+
+declare function local:generateWagonCheckSum($inputWagonClass as xs:string, $inputWagonNumber as xs:string) as xs:string {
+    (: Format input :)
+    let $wagonClass := replace(replace($inputWagonClass,'\s+$',''),'^\s+','') (: Remove leading and trailing spaces :)
+    let $wagonNumber := replace(replace($inputWagonNumber,'\s+$',''),'^\s+','') (: Remove leading and trailing spaces :)
+    return
+      (: Validate input :)
+      if(fn:matches($wagonClass, '^[A-Z]{1,4}$') and fn:matches($wagonNumber, '^[0-9]{5}$')) then
+  
+        let $albet := ('A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z')
+        let $checkSumChars := ('A','B','C','D','E','F','G','H','X','J','K','L','M','N','Y','P','Q','R','S','T','U','V','W','X','Y','Z') 
+        (: $checkSumChars is like the alphabet except I is replaced with X, O with Y:)
+        let $classSum := sum( for $i in (1 to fn:string-length($wagonClass)) return $i * fn:index-of($albet,fn:substring($wagonClass,$i,1)))
+        let $numSum := sum( for $i in (1 to fn:string-length($wagonNumber)) return ($i + 4) * xs:int(fn:substring($wagonNumber,$i,1)))
+        let $index := (($classSum + $numSum) mod 23) + 1
+        
+        return $checkSumChars[$index]
+      else ''
+};
+
+declare function local:AurizonBearingTemperature_to_FleetOneBearingTemperatureJSON($AurizonBearingTemperature as element() (:: schema-element(wm:WaysideMeasurementAxleBoxWheelBearingTemperature) ::)) as element() (:: schema-element(hbd:FleetOneBearingTemperature) ::) {
+    <hbd:FleetOneBearingTemperature>
+        <hbd:WaysideMeasurementAxleBoxWheelBearingTemperature>
+            <hbd:Head>
+                <hbd:Reference>
+                    <hbd:Identity>{fn:data($AurizonBearingTemperature/wm:Head/wm:Reference/wm:Identity)}</hbd:Identity>
+                    <hbd:DateTime>{fn:data($AurizonBearingTemperature/wm:Head/wm:Reference/wm:DateTime)}</hbd:DateTime>
+                </hbd:Reference>
+                <hbd:Sender>
+                    {
+                        if ($AurizonBearingTemperature/wm:Head/wm:Sender/wm:Identity)
+                        then <hbd:Identity>{fn:data($AurizonBearingTemperature/wm:Head/wm:Sender/wm:Identity)}</hbd:Identity>
+                        else ()
+                    }
+                    <hbd:Name>{fn:data($AurizonBearingTemperature/wm:Head/wm:Sender/wm:Name)}</hbd:Name>
+                </hbd:Sender>
+                <hbd:Receivers>
+                {
+                    for $Receiver in $AurizonBearingTemperature/wm:Head/wm:Receivers/wm:Receiver
+                    return
+                    <hbd:Receiver>
+                        <hbd:Identity>{fn:data($Receiver/wm:Identity)}</hbd:Identity>
+                        <hbd:Name>{fn:data($Receiver/wm:Name)}</hbd:Name>
+                        <hbd:Role>{fn:data($Receiver/wm:Role)}</hbd:Role>
+                    </hbd:Receiver>
+                }
+                </hbd:Receivers>
+            </hbd:Head>
+            <hbd:Body>
+                <hbd:System>
+                    <hbd:Source>{fn:data($AurizonBearingTemperature/wm:Body/wm:System/wm:Source)}</hbd:Source>
+                    <hbd:Vendor>{fn:data($AurizonBearingTemperature/wm:Body/wm:System/wm:Vendor)}</hbd:Vendor>
+                    <hbd:Maintainer>{fn:data($AurizonBearingTemperature/wm:Body/wm:System/wm:Maintainer)}</hbd:Maintainer>
+                    <hbd:Application>{fn:data($AurizonBearingTemperature/wm:Body/wm:System/wm:Application)}</hbd:Application>
+                    {
+                        if ($AurizonBearingTemperature/wm:Body/wm:System/wm:SoftwareVersion)
+                        then <hbd:SoftwareVersion>{fn:data($AurizonBearingTemperature/wm:Body/wm:System/wm:SoftwareVersion)}</hbd:SoftwareVersion>
+                        else ()
+                    }
+                    {
+                        if ($AurizonBearingTemperature/wm:Body/wm:System/wm:FirmwareVersion)
+                        then <hbd:FirmwareVersion>{fn:data($AurizonBearingTemperature/wm:Body/wm:System/wm:FirmwareVersion)}</hbd:FirmwareVersion>
+                        else ()
+                    }
+                    {
+                        if ($AurizonBearingTemperature/wm:Body/wm:System/wm:HardwareVersion)
+                        then <hbd:HardwareVersion>{fn:data($AurizonBearingTemperature/wm:Body/wm:System/wm:HardwareVersion)}</hbd:HardwareVersion>
+                        else ()
+                    }
+                </hbd:System>
+                <hbd:Location>
+                    {
+                        if ($AurizonBearingTemperature/wm:Body/wm:Location/wm:Identity)
+                        then <hbd:Identity>{fn:data($AurizonBearingTemperature/wm:Body/wm:Location/wm:Identity)}</hbd:Identity>
+                        else ()
+                    }
+                    <hbd:Name>{fn:data($AurizonBearingTemperature/wm:Body/wm:Location/wm:Name)}</hbd:Name>
+                </hbd:Location>
+                {
+                    if ($AurizonBearingTemperature/wm:Body/wm:Track)
+                    then <hbd:Track>{fn:data($AurizonBearingTemperature/wm:Body/wm:Track)}</hbd:Track>
+                    else ()
+                }
+                {
+                    if ($AurizonBearingTemperature/wm:Body/wm:Direction)
+                    then <hbd:Direction>{fn:data($AurizonBearingTemperature/wm:Body/wm:Direction)}</hbd:Direction>
+                    else ()
+                }
+                <hbd:RowCreatedUTCDateTime>{fn:data($AurizonBearingTemperature/wm:Body/wm:RowCreatedUTCDateTime)}</hbd:RowCreatedUTCDateTime>
+                {
+                    if ($AurizonBearingTemperature/wm:Body/wm:Start)
+                    then <hbd:Start>{fn:data($AurizonBearingTemperature/wm:Body/wm:Start)}</hbd:Start>
+                    else ()
+                }
+                {
+                    if ($AurizonBearingTemperature/wm:Body/wm:End)
+                    then <hbd:End>{fn:data($AurizonBearingTemperature/wm:Body/wm:End)}</hbd:End>
+                    else ()
+                }
+                <hbd:Service>
+                    <!-- hbd:Reference>
+                        <hbd:Identity></hbd:Identity>
+                        <hbd:Date></hbd:Date>
+                        <hbd:TrainNumber></hbd:TrainNumber>
+                        <hbd:UTCTrainUID></hbd:UTCTrainUID>
+                        <hbd:UTCTrainNumber></hbd:UTCTrainNumber>
+                    </hbd:Reference> -->
+                    {
+                        if ($AurizonBearingTemperature/wm:Body/wm:Service/wm:RollingStocks)
+                        then <hbd:RollingStocks>{fn:data($AurizonBearingTemperature/wm:Body/wm:Service/wm:RollingStocks)}</hbd:RollingStocks>
+                        else ()
+                    }
+                    <!--<hbd:Platforms></hbd:Platforms>-->
+                    {
+                        if ($AurizonBearingTemperature/wm:Body/wm:Service/wm:Axles)
+                        then <hbd:Axles>{fn:data($AurizonBearingTemperature/wm:Body/wm:Service/wm:Axles)}</hbd:Axles>
+                        else ()
+                    }
+                    {
+                        if ($AurizonBearingTemperature/wm:Body/wm:Service/wm:Length)
+                        then
+                        <hbd:Length>
+                            <hbd:Value>{fn:data($AurizonBearingTemperature/wm:Body/wm:Service/wm:Length/wm:Value)}</hbd:Value>
+                            <hbd:Unit>{fn:data($AurizonBearingTemperature/wm:Body/wm:Service/wm:Length/wm:Unit)}</hbd:Unit>
+                        </hbd:Length>
+                        else ()
+                    }
+                    {
+                        if ($AurizonBearingTemperature/wm:Body/wm:Service/wm:Speed)
+                        then <hbd:Speed>
+                            <hbd:Value>{fn:data($AurizonBearingTemperature/wm:Body/wm:Service/wm:Speed/wm:Value)}</hbd:Value>
+                            <hbd:Unit>{fn:data($AurizonBearingTemperature/wm:Body/wm:Service/wm:Speed/wm:Unit)}</hbd:Unit></hbd:Speed>
+                        else ()
+                    }
+                    {
+                        if ($AurizonBearingTemperature/wm:Body/wm:Service/wm:EntrySpeed)
+                        then <hbd:EntrySpeed>
+                            <hbd:Value>{fn:data($AurizonBearingTemperature/wm:Body/wm:Service/wm:EntrySpeed/wm:Value)}</hbd:Value>
+                            <hbd:Unit>{fn:data($AurizonBearingTemperature/wm:Body/wm:Service/wm:EntrySpeed/wm:Unit)}</hbd:Unit></hbd:EntrySpeed>
+                        else ()
+                    }
+                    {
+                        if ($AurizonBearingTemperature/wm:Body/wm:Service/wm:ExitSpeed)
+                        then <hbd:ExitSpeed>
+                            <hbd:Value>{fn:data($AurizonBearingTemperature/wm:Body/wm:Service/wm:ExitSpeed/wm:Value)}</hbd:Value>
+                            <hbd:Unit>{fn:data($AurizonBearingTemperature/wm:Body/wm:Service/wm:ExitSpeed/wm:Unit)}</hbd:Unit>
+                        </hbd:ExitSpeed>
+                        else ()
+                    }
+                    {
+                        if ($AurizonBearingTemperature/wm:Body/wm:Service/wm:AmbientTemperature)
+                        then
+                        <hbd:AmbientTemperature>
+                            <hbd:Value>{fn:data($AurizonBearingTemperature/wm:Body/wm:Service/wm:AmbientTemperature/wm:Value)}</hbd:Value>
+                            <hbd:Unit>{fn:data($AurizonBearingTemperature/wm:Body/wm:Service/wm:AmbientTemperature/wm:Unit)}</hbd:Unit>
+                        </hbd:AmbientTemperature>
+                        else ()
+                    }
+                    <hbd:Rollingstock>
+                    {
+                        for $Item in $AurizonBearingTemperature/wm:Body/wm:Service/wm:Rollingstock/wm:Item
+                        return
+                        <hbd:Item>
+                            <hbd:Sequence>{fn:data($Item/wm:Sequence)}</hbd:Sequence>
+                            {
+                                let $VehicleClass := fn:replace($Item/wm:Identity/wm:Class,'\s+','')
+                                let $isLoco := (dvmtr:lookup("BI.Common/resources/dvm/VehicleIDCodes.dvm", "LS_LC_CODE", $VehicleClass, "Vehicle_ID", "") != "")
+                                return
+                                if($Item/wm:Identity)
+                                then
+                                    if($isLoco)
+                                    then
+                                        (: Loco mapping :)
+                                        <hbd:Identity>
+                                            <hbd:Class>{ data($Item/wm:Identity/wm:Class) }</hbd:Class>
+                                            <hbd:Number>{ fn:concat(' ',local:left-pad-string-to-length(fn:replace($Item/wm:Identity/wm:Number,'\s+',''),'0', 6)) }</hbd:Number>
+                                            {
+                                                if ($Item/wm:Identity/wm:AEI)
+                                                then <hbd:AEI>{fn:data($Item/wm:Identity/wm:AEI)}</hbd:AEI>
+                                                else ()
+                                            }
+                                        </hbd:Identity>
+                                    else
+                                        let $WagonNumberClean := fn:replace($Item/wm:Identity/wm:Number,'[a-z]','') (: Wagon Number with multi-pack id removed :)
+                                        let $WagonNumber := local:left-pad-string-to-length($WagonNumberClean,'0', 5) (: Pad with zeroes and left trim wagon number up to length of 5 chars :)
+                                        return 
+                                        (: Wagon mapping :)
+                                        <hbd:Identity>
+                                            <hbd:Class>{ $VehicleClass }</hbd:Class>
+                                            <hbd:Number>{ $WagonNumber }</hbd:Number>
+                                            {
+                                                if ($Item/wm:Identity/wm:CheckLetter)
+                                                then <hbd:CheckLetter>{fn:data($Item/wm:Identity/wm:CheckLetter)}</hbd:CheckLetter>
+                                                else <hbd:CheckLetter>{local:generateWagonCheckSum($VehicleClass,$WagonNumber)}</hbd:CheckLetter>
+                                            }
+                                            {
+                                                if ($Item/wm:Identity/wm:AEI)
+                                                then <hbd:AEI>{fn:data($Item/wm:Identity/wm:AEI)}</hbd:AEI>
+                                                else ()
+                                            }
+                                        </hbd:Identity>
+                                    else if ($Item/wm:Unidentified)
+                                    then
+                                    <hbd:Unidentified>
+                                        <hbd:Reason>
+                                            <hbd:Type>{ data($Item/wm:Unidentified/wm:Reason/wm:Type) }</hbd:Type>
+                                            <hbd:Detail>{ data($Item/wm:Unidentified/wm:Reason/wm:Detail) }</hbd:Detail>
+                                        </hbd:Reason>
+                                    </hbd:Unidentified>
+                                    else()
+                            }
+                            {
+                                if ($Item/wm:Orientation)
+                                then <hbd:Orientation>{fn:data($Item/wm:Orientation)}</hbd:Orientation>
+                                else ()
+                            }
+                            {
+                                if (fn:count($Item/wm:Axles) > 0)
+                                then <hbd:Axles>{fn:sum($Item/wm:Axles)}</hbd:Axles>
+                                else ()
+                            }
+                            <hbd:Bogies>
+                            {
+                                for $Bogie in $Item/wm:Bogies/wm:Bogie
+                                return
+                                <hbd:Bogie>
+                                    <hbd:Sequence>{fn:data($Bogie/wm:Sequence)}</hbd:Sequence>
+                                    <hbd:Axles>
+                                    {
+                                        for $Axle in $Bogie/wm:Axles/wm:Axle
+                                        return
+                                        <hbd:Axle>
+                                            <hbd:Sequence>{fn:data($Axle/wm:Sequence)}</hbd:Sequence>
+                                            <hbd:TrainSequence>{fn:data($Axle/wm:TrainSequence)}</hbd:TrainSequence>
+                                            <hbd:VehicleSequence>{fn:data($Axle/wm:VehicleSequence)}</hbd:VehicleSequence>
+                                            {
+                                                if($Axle/wm:Speed)
+                                                then
+                                                <hbd:Speed>
+                                                    <hbd:Value>{fn:data($Axle/wm:Speed/wm:Value)}</hbd:Value>
+                                                    <hbd:Unit>{fn:data($Axle/wm:Speed/wm:Unit)}</hbd:Unit>
+                                                </hbd:Speed>
+                                                else()
+                                            }
+                                            <hbd:Distance>
+                                                <hbd:Value>{fn:data($Axle/wm:Distance/wm:Value)}</hbd:Value>
+                                                <hbd:Unit>{fn:data($Axle/wm:Distance/wm:Unit)}</hbd:Unit>
+                                            </hbd:Distance>
+                                            <hbd:Wheels>
+                                            {
+                                                for $Wheel in $Axle/wm:Wheels/wm:Wheel
+                                                return
+                                                <hbd:Wheel>
+                                                    <hbd:Sequence>{fn:data($Wheel/wm:Sequence)}</hbd:Sequence>
+                                                    {
+                                                        if($Wheel/wm:Side)
+                                                        then <hbd:Side>{fn:data($Wheel/wm:Side)}</hbd:Side>
+                                                        else ()
+                                                    }
+                                                    <hbd:Temperature>
+                                                    {
+                                                        if($Wheel/wm:Temperature/wm:Wheel)
+                                                        then
+                                                        <hbd:Wheel>
+                                                            {
+                                                                if($Wheel/wm:Temperature/wm:Wheel/wm:Absolute)
+                                                                then
+                                                                <hbd:Absolute>
+                                                                    <hbd:Value>{data($Wheel/wm:Temperature/wm:Wheel/wm:Absolute/wm:Value)}</hbd:Value>
+                                                                    <hbd:Unit>{data($Wheel/wm:Temperature/wm:Wheel/wm:Absolute/wm:Unit)}</hbd:Unit>
+                                                                </hbd:Absolute>
+                                                                else()
+                                                            }
+                                                            {
+                                                                if($Wheel/wm:Temperature/wm:Wheel/wm:Relative)
+                                                                then
+                                                                <hbd:Relative>
+                                                                    <hbd:Value>{data($Wheel/wm:Temperature/wm:Wheel/wm:Relative/wm:Value)}</hbd:Value>
+                                                                    <hbd:Unit>{data($Wheel/wm:Temperature/wm:Wheel/wm:Relative/wm:Unit)}</hbd:Unit>
+                                                                </hbd:Relative>
+                                                                else()
+                                                            }
+                                                        </hbd:Wheel>
+                                                        else()
+                                                    }
+                                                    {
+                                                        if($Wheel/wm:Temperature/wm:Bearing)
+                                                        then
+                                                        <hbd:Bearing>
+                                                            {
+                                                                if($Wheel/wm:Temperature/wm:Bearing/wm:Absolute)
+                                                                then
+                                                                <hbd:Absolute>
+                                                                    <hbd:Value>{data($Wheel/wm:Temperature/wm:Bearing/wm:Absolute/wm:Value)}</hbd:Value>
+                                                                    <hbd:Unit>{data($Wheel/wm:Temperature/wm:Bearing/wm:Absolute/wm:Unit)}</hbd:Unit>
+                                                                </hbd:Absolute>
+                                                                else()
+                                                            }
+                                                            {
+                                                                if($Wheel/wm:Temperature/wm:Bearing/wm:Relative)
+                                                                then
+                                                                <hbd:Relative>
+                                                                    <hbd:Value>{data($Wheel/wm:Temperature/wm:Bearing/wm:Relative/wm:Value)}</hbd:Value>
+                                                                    <hbd:Unit>{data($Wheel/wm:Temperature/wm:Bearing/wm:Relative/wm:Unit)}</hbd:Unit>
+                                                                </hbd:Relative>
+                                                                else()
+                                                            }
+                                                        </hbd:Bearing>
+                                                        else()
+                                                    }
+                                                    </hbd:Temperature>
+                                                </hbd:Wheel>
+                                            }
+                                            </hbd:Wheels>
+                                        </hbd:Axle>
+                                    }
+                                    </hbd:Axles>
+                                </hbd:Bogie>
+                            }
+                            </hbd:Bogies>
+                        </hbd:Item>
+                    }
+                    </hbd:Rollingstock>
+                </hbd:Service>
+            </hbd:Body>
+        </hbd:WaysideMeasurementAxleBoxWheelBearingTemperature>
+    </hbd:FleetOneBearingTemperature>
+};
+
+local:AurizonBearingTemperature_to_FleetOneBearingTemperatureJSON($AurizonBearingTemperature)
