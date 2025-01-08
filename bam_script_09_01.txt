@@ -1,0 +1,473 @@
+//works with Constant approach
+var json = workflowContext.actions.Json.inputs.variables[0].value;
+
+function lookup(dvm, key1, value1, key2, defaultValue) {
+    const rows = dvm.rows;
+
+    for (let i = 0; i < rows.length; i++) {
+        if (rows[i].cell[0] === value1) {
+            return rows[i].cell[1];
+        }
+    }
+
+    return defaultValue;
+}
+
+function leftPadStringToLength(stringToPad, padChar, length) {
+  let paddedString = Array(length + 1).join(padChar) + stringToPad;
+  return paddedString.substring(paddedString.length - length);
+}
+
+function generateWagonCheckSum(inputWagonClass, inputWagonNumber) {
+  // Format input
+  let wagonClass = inputWagonClass.replace(/^\s+|\s+$/g, ''); // Remove leading and trailing spaces
+  let wagonNumber = inputWagonNumber.replace(/^\s+|\s+$/g, '');
+
+  // Validate input
+  if (/^[A-Z]{1,4}$/.test(wagonClass) && /^[0-9]{5}$/.test(wagonNumber)) {
+    let alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let checkSumChars = 'ABCDEFGHXJKLMNYPQRSTUVWXYZ'; // I is replaced with X, O with Y
+
+    let classSum = Array.from(wagonClass).reduce((sum, char, i) => sum + (i + 1) * (alphabet.indexOf(char) + 1), 0);
+    let numSum = Array.from(wagonNumber).reduce((sum, char, i) => sum + (i + 5) * parseInt(char), 0);
+    let index = (classSum + numSum) % 23;
+
+    return checkSumChars[index];
+  } else {
+    return '';
+  }
+}
+
+
+function ensureArray(value) {
+    if (Array.isArray(value)) {
+        return value;
+    } else if (value !== undefined && value !== null) {
+        return [value];
+    } else {
+        return [];
+    }
+}
+
+function ensureArrayNumber(value) {
+    if (Array.isArray(value)) {
+        return value.map(item => Number(item)); // Convert each item to Number
+    } else if (value !== undefined && value !== null) {
+        return [Number(value)]; // Convert the value to Number and return as an array
+    } else {
+        return [];
+    }
+}
+
+function AurizonBearingAcousticsToFleetOneBearingAcousticsJSON(json) {
+
+    let aurizonBearingAcoustics = json["wm:WaysideMeasurementBearingAcoustics"];
+
+    let receivers = ensureArray(aurizonBearingAcoustics["wm:Head"]["wm:Receivers"]["wm:Receiver"]);
+
+    const distinctRollingstockIds = [...new Set(aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:Rollingstock"]["wm:Item"].map(item => {
+        const itemClass = item["wm:Identity"]["wm:Class"];
+        const itemNumber = item["wm:Identity"]["wm:Number"].replace(/[a-z]$/, '');
+        return itemClass + itemNumber;
+    }))];
+
+    const sequenceOffset = aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:Rollingstock"]["wm:Item"][0]["wm:Sequence"];
+
+
+    const headSection = {
+        "Reference": {
+            "Identity": aurizonBearingAcoustics["wm:Head"]["wm:Reference"]["wm:Identity"],
+            "DateTime": aurizonBearingAcoustics["wm:Head"]["wm:Reference"]["wm:DateTime"]
+        },
+        "Sender": {
+            "Name": aurizonBearingAcoustics["wm:Head"]["wm:Sender"]["wm:Name"]
+        },
+        "Receivers":  {
+            "Receiver" : receivers.map(receiver => ({
+                "Identity": receiver["wm:Identity"],
+                "Name": receiver["wm:Name"],
+                "Role": receiver["wm:Role"]
+            }))
+        }
+    };
+
+    // Conditionally add the Identity to Sender if it exists
+    if (aurizonBearingAcoustics["wm:Head"]["wm:Sender"]["wm:Identity"]) {
+        headSection["Sender"]["Identity"] = aurizonBearingAcoustics["wm:Head"]["wm:Sender"]["wm:Identity"];
+    }
+
+    const bodySection = {
+        "System": {
+            "Source": aurizonBearingAcoustics["wm:Body"]["wm:System"]["wm:Source"],
+            "Vendor": aurizonBearingAcoustics["wm:Body"]["wm:System"]["wm:Vendor"],
+            "Maintainer": aurizonBearingAcoustics["wm:Body"]["wm:System"]["wm:Maintainer"],
+            "Application": aurizonBearingAcoustics["wm:Body"]["wm:System"]["wm:Application"]
+        },
+        "Location": {
+            "Name": aurizonBearingAcoustics["wm:Body"]["wm:Location"]["wm:Name"]
+        },
+        "RowCreatedUTCDateTime": aurizonBearingAcoustics["wm:Body"]["wm:RowCreatedUTCDateTime"],
+        "Service": {
+            "Rollingstock": {
+              "Item": distinctRollingstockIds.map((rollingstockId, rollingstockSequence) => {
+                const items = aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:Rollingstock"]["wm:Item"].filter(item =>
+                    (item["wm:Identity"]["wm:Class"] + item["wm:Identity"]["wm:Number"]).includes(rollingstockId)
+                );
+                const firstItem = items[0];
+                const vehicleClass = firstItem["wm:Identity"]["wm:Class"].replace(/\s+/g, '');
+                const isLoco = lookup(dvmData.dvm, "LS_LC_CODE", vehicleClass, "Vehicle_ID", "") !== "";
+
+                const rollingstockItem = {
+                        "Sequence": Number(rollingstockSequence + sequenceOffset), //-1
+                        "Identity": {
+                            "Class": vehicleClass,
+                            "Number": isLoco
+                                ? ` ${leftPadStringToLength(firstItem["wm:Identity"]["wm:Number"].trim(), '0', 6)}`
+                                : leftPadStringToLength(firstItem["wm:Identity"]["wm:Number"].replace(/[a-z]$/, '').trim(), '0', 5),
+                            "CheckLetter": firstItem["wm:Identity"]["wm:CheckLetter"] || generateWagonCheckSum(vehicleClass, firstItem["wm:Identity"]["wm:Number"].replace(/[a-z]$/, ''))
+                        },
+                        "Axles": items.reduce((sum, item) => sum + Number(item["wm:Axles"]), 0),
+                        "Bogies": {
+                            "Bogie" : items.flatMap(item => ensureArray(item["wm:Bogies"]["wm:Bogie"]).map(bogie => {
+                            const bogieObj = {
+                                "Sequence": Number(bogie["wm:Sequence"]),
+                                "Axles": {
+                                    "Axle" : ensureArray(bogie["wm:Axles"]["wm:Axle"]).map(axle => {
+                                    const axleObj = {
+                                        "Sequence": Number(axle["wm:Sequence"]),
+                                        "TrainSequence": Number(axle["wm:TrainSequence"]),
+                                        "VehicleSequence": Number(axle["wm:VehicleSequence"]),
+                                        "Wheels": {
+                                            "Wheel" : ensureArray(axle["wm:Wheels"]["wm:Wheel"]).map(wheel => {
+                                            const wheelObj = {
+                                                "Sequence": Number(wheel["wm:Sequence"]),
+                                                "Spectrum": ensureArrayNumber(wheel["wm:Spectrum"])
+                                            };
+                                            if (wheel["wm:Side"]) wheelObj["Side"] = wheel["wm:Side"];
+                                            if (wheel["wm:Diameter"]) {
+                                                wheelObj["Diameter"] = {
+                                                    "Value": Number(wheel["wm:Diameter"]["wm:Value"]),
+                                                    "Unit": wheel["wm:Diameter"]["wm:Unit"]
+                                                };
+                                            }
+                                            if (wheel["wm:WheelSeverity"]) wheelObj["WheelSeverity"] = wheel["wm:WheelSeverity"];
+                                            if (wheel["wm:BearingSeverity"]) wheelObj["BearingSeverity"] = wheel["wm:BearingSeverity"];
+                                            if (wheel["wm:RMSBand"]) {
+                                                wheelObj["RMSBand"] = {
+                                                    "Value": Number(wheel["wm:RMSBand"]["wm:Value"]),
+                                                    "Unit": wheel["wm:RMSBand"]["wm:Unit"]
+                                                };
+                                            }
+                                            if (wheel["wm:RMSTotal"]) {
+                                                wheelObj["RMSTotal"] = {
+                                                    "Value": Number(wheel["wm:RMSTotal"]["wm:Value"]),
+                                                    "Unit": wheel["wm:RMSTotal"]["wm:Unit"]
+                                                };
+                                            }
+                                            if (wheel["wm:LooseFretting"]) {
+                                                wheelObj["LooseFretting"] = {
+                                                    "Value": Number(wheel["wm:LooseFretting"]["wm:Value"]),
+                                                    "Unit": wheel["wm:LooseFretting"]["wm:Unit"]
+                                                };
+                                            }
+                                            if (wheel["wm:Roller"]) {
+                                                wheelObj["Roller"] = {
+                                                    "Value": Number(wheel["wm:Roller"]["wm:Value"]),
+                                                    "Unit": wheel["wm:Roller"]["wm:Unit"]
+                                                };
+                                            }
+                                            if (wheel["wm:Cup"]) {
+                                                wheelObj["Cup"] = {
+                                                    "Value": Number(wheel["wm:Cup"]["wm:Value"]),
+                                                    "Unit": wheel["wm:Cup"]["wm:Unit"]
+                                                };
+                                            }
+                                            if (wheel["wm:Cone"]) {
+                                                wheelObj["Cone"] = {
+                                                    "Value": Number(wheel["wm:Cone"]["wm:Value"]),
+                                                    "Unit": wheel["wm:Cone"]["wm:Unit"]
+                                                };
+                                            }
+                                            if (wheel["wm:Noisy"]) {
+                                                wheelObj["Noisy"] = {
+                                                    "Value": Number(wheel["wm:Noisy"]["wm:Value"]),
+                                                    "Unit": wheel["wm:Noisy"]["wm:Unit"]
+                                                };
+                                            }
+                                            if (wheel["wm:RMSBandWheetFlat"]) {
+                                                wheelObj["RMSBandWheetFlat"] = {
+                                                    "Value": Number(wheel["wm:RMSBandWheetFlat"]["wm:Value"]),
+                                                    "Unit": wheel["wm:RMSBandWheetFlat"]["wm:Unit"]
+                                                };
+                                            }
+                                            if (wheel["wm:WheetFlat"]) {
+                                                wheelObj["WheetFlat"] = {
+                                                    "Value": Number(wheel["wm:WheetFlat"]["wm:Value"]),
+                                                    "Unit": wheel["wm:WheetFlat"]["wm:Unit"]
+                                                };
+                                            }
+                                            if (wheel["wm:BearingConsistency"]) {
+                                                wheelObj["BearingConsistency"] = {
+                                                    "Value": Number(wheel["wm:BearingConsistency"]["wm:Value"]),
+                                                    "IsConsistent": wheel["wm:BearingConsistency"]["wm:IsConsistent"]
+                                                };
+                                                if (wheel["wm:BearingConsistency"]["wm:ExponentialMovingAverage"]) {
+                                                    wheelObj["BearingConsistency"]["ExponentialMovingAverage"] = Number(wheel["wm:BearingConsistency"]["wm:ExponentialMovingAverage"]);
+                                                }
+                                            }
+                                            return wheelObj;
+                                        })
+                                      }
+                                    };
+                                    if (axle["wm:Speed"]) {
+                                        axleObj["Speed"] = {
+                                            "Value": Number(axle["wm:Speed"]["wm:Value"]),
+                                            "Unit": axle["wm:Speed"]["wm:Unit"]
+                                        };
+                                    }
+                                    if (axle["wm:Distance"]) {
+                                        axleObj["Distance"] = {
+                                            "Value": Number(axle["wm:Distance"]["wm:Value"]),
+                                            "Unit": axle["wm:Distance"]["wm:Unit"]
+                                        };
+                                    }
+                                    if (axle["wm:RPM"]) axleObj["RPM"] = Number(axle["wm:RPM"]);
+                                    return axleObj;
+                                })
+                              }
+                            };
+                            return bogieObj;
+                        }))
+                    }
+                }
+                
+                if (firstItem["wm:Identity"]) {
+                        if (isLoco) {
+                            rollingstockItem["Identity"] = {
+                                "Class": vehicleClass,
+                                "Number": ` ${leftPadStringToLength(firstItem["wm:Identity"]["wm:Number"].trim(), '0', 6)}`
+                            };
+                            if (firstItem["wm:Identity"]["wm:AEI"]) {
+                                rollingstockItem["Identity"]["AEI"] = firstItem["wm:Identity"]["wm:AEI"];
+                            }
+                        } else {
+                            const wagonNumberClean = firstItem["wm:Identity"]["wm:Number"].replace(/[a-z]$/, '').trim();
+                            const wagonNumber = leftPadStringToLength(wagonNumberClean, '0', 5);
+                            rollingstockItem["Identity"] = {
+                                "Class": vehicleClass,
+                                "Number": wagonNumber,
+                                "CheckLetter": firstItem["wm:Identity"]["wm:CheckLetter"] || generateWagonCheckSum(vehicleClass, wagonNumber)
+                            };
+                            if (firstItem["wm:Identity"]["wm:AEI"]) {
+                                rollingstockItem["Identity"]["AEI"] = firstItem["wm:Identity"]["wm:AEI"];
+                            }
+                        }
+                    }
+
+                    if (firstItem["wm:Orientation"]) rollingstockItem["Orientation"] = firstItem["wm:Orientation"];
+
+                    return rollingstockItem;
+            })
+          }
+        }
+    };
+
+    if (aurizonBearingAcoustics["wm:Body"]["wm:System"]["wm:SoftwareVersion"]) {
+        bodySection["System"]["SoftwareVersion"] = aurizonBearingAcoustics["wm:Body"]["wm:System"]["wm:SoftwareVersion"];
+    }
+    if (aurizonBearingAcoustics["wm:Body"]["wm:System"]["wm:FirmwareVersion"]) {
+        bodySection["System"]["FirmwareVersion"] = aurizonBearingAcoustics["wm:Body"]["wm:System"]["wm:FirmwareVersion"];
+    }
+    if (aurizonBearingAcoustics["wm:Body"]["wm:System"]["wm:HardwareVersion"]) {
+        bodySection["System"]["HardwareVersion"] = aurizonBearingAcoustics["wm:Body"]["wm:System"]["wm:HardwareVersion"];
+    }
+    if (aurizonBearingAcoustics["wm:Body"]["wm:Location"]["wm:Identity"]) {
+        bodySection["Location"]["Identity"] = aurizonBearingAcoustics["wm:Body"]["wm:Location"]["wm:Identity"];
+    }
+    if (aurizonBearingAcoustics["wm:Body"]["wm:Track"]) {
+        bodySection["Track"] = aurizonBearingAcoustics["wm:Body"]["wm:Track"];
+    }
+    if (aurizonBearingAcoustics["wm:Body"]["wm:Direction"]) {
+        bodySection["Direction"] = aurizonBearingAcoustics["wm:Body"]["wm:Direction"];
+    }
+    if (aurizonBearingAcoustics["wm:Body"]["wm:Start"]) {
+        bodySection["Start"] = aurizonBearingAcoustics["wm:Body"]["wm:Start"];
+    }
+    if (aurizonBearingAcoustics["wm:Body"]["wm:End"]) {
+        bodySection["End"] = aurizonBearingAcoustics["wm:Body"]["wm:End"];
+    }
+    if (aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:RollingStocks"]) {
+        bodySection["Service"]["RollingStocks"] = Number(aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:RollingStocks"]);
+    }
+    if (aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:Axles"]) {
+        bodySection["Service"]["Axles"] = Number(aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:Axles"]);
+    }
+    if (aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:Length"]) {
+        bodySection["Service"]["Length"] = {
+            "Value": Number(aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:Length"]["wm:Value"]),
+            "Unit": aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:Length"]["wm:Unit"]
+        };
+    }
+    if (aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:Speed"]) {
+        bodySection["Service"]["Speed"] = {
+            "Value": Number(aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:Speed"]["wm:Value"]),
+            "Unit": aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:Speed"]["wm:Unit"]
+        };
+    }
+    if (aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:EntrySpeed"]) {
+        bodySection["Service"]["EntrySpeed"] = {
+            "Value": Number(aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:EntrySpeed"]["wm:Value"]),
+            "Unit": aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:EntrySpeed"]["wm:Unit"]
+        };
+    }
+    if (aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:ExitSpeed"]) {
+        bodySection["Service"]["ExitSpeed"] = {
+            "Value": Number(aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:ExitSpeed"]["wm:Value"]),
+            "Unit": aurizonBearingAcoustics["wm:Body"]["wm:Service"]["wm:ExitSpeed"]["wm:Unit"]
+        };
+    }
+
+
+    return {
+        //"FleetOneBearingAcoustics": {
+            "WaysideMeasurementBearingAcoustics": {
+                "Head": headSection,
+                "Body" : bodySection
+            }
+        //}
+    };
+}
+
+const dvmData = {
+    "dvm": {
+        "name": "VehicleIDCodes",
+        "xmlns": "http://xmlns.oracle.com/dvm",
+        "description": "",
+        "columns": [
+            { "name": "LS_LC_CODE" },
+            { "name": "Vehicle_ID" }
+        ],
+        "rows": [
+            { "cell": ["LOCO", "LOCO"] },
+            { "cell": ["09", "09"] },
+            { "cell": ["10", "10"] },
+            { "cell": ["13", "13"] },
+            { "cell": ["18", "18"] },
+            { "cell": ["22", "22"] },
+            { "cell": ["30", "30"] },
+            { "cell": ["31", "31"] },
+            { "cell": ["32", "32"] },
+            { "cell": ["44", "44"] },
+            { "cell": ["45", "45"] },
+            { "cell": ["46", "46"] },
+            { "cell": ["47", "47"] },
+            { "cell": ["48", "48"] },
+            { "cell": ["49", "49"] },
+            { "cell": ["71", "71"] },
+            { "cell": ["73", "73"] },
+            { "cell": ["80", "80"] },
+            { "cell": ["81", "81"] },
+            { "cell": ["82", "82"] },
+            { "cell": ["83", "83"] },
+            { "cell": ["85", "85"] },
+            { "cell": ["86", "86"] },
+            { "cell": ["88", "88"] },
+            { "cell": ["90", "90"] },
+            { "cell": ["92", "92"] },
+            { "cell": ["93", "93"] },
+            { "cell": ["422", "422"] },
+            { "cell": ["442", "442"] },
+            { "cell": ["500", "500"] },
+            { "cell": ["600", "600"] },
+            { "cell": ["700", "700"] },
+            { "cell": ["830", "830"] },
+            { "cell": ["900", "900"] },
+            { "cell": ["1620", "1620"] },
+            { "cell": ["2300", "2300"] },
+            { "cell": ["2800", "2800"] },
+            { "cell": ["4420", "4420"] },
+            { "cell": ["6020", "6020"] },
+            { "cell": ["7000", "7000"] },
+            { "cell": ["A", "A"] },
+            { "cell": ["AC", "AC"] },
+            { "cell": ["ACB", "ACB"] },
+            { "cell": ["ACC", "ACC"] },
+            { "cell": ["ALF", "ALF"] },
+            { "cell": ["AN", "AN"] },
+            { "cell": ["B", "B"] },
+            { "cell": ["BL", "BL"] },
+            { "cell": ["BMACC", "BMACC"] },
+            { "cell": ["C", "C"] },
+            { "cell": ["CF", "CF"] },
+            { "cell": ["CK", "CK"] },
+            { "cell": ["CLF", "CLF"] },
+            { "cell": ["CLP", "CLP"] },
+            { "cell": ["CSR", "CSR"] },
+            { "cell": ["D", "D"] },
+            { "cell": ["D3", "D3"] },
+            { "cell": ["DA", "DA"] },
+            { "cell": ["DL", "DL"] },
+            { "cell": ["DMU", "DMU"] },
+            { "cell": ["EL", "EL"] },
+            { "cell": ["FJ", "FJ"] },
+            { "cell": ["FL", "FL"] },
+            { "cell": ["FQ", "FQ"] },
+            { "cell": ["G", "G"] },
+            { "cell": ["GL", "GL"] },
+            { "cell": ["GM", "GM"] },
+            { "cell": ["GPU", "GPU"] },
+            { "cell": ["GWA", "GWA"] },
+            { "cell": ["GWB", "GWB"] },
+            { "cell": ["GWU", "GWU"] },
+            { "cell": ["H", "H"] },
+            { "cell": ["HL", "HL"] },
+            { "cell": ["J", "J"] },
+            { "cell": ["JL", "JL"] },
+            { "cell": ["K", "K"] },
+            { "cell": ["KL", "KL"] },
+            { "cell": ["L", "L"] },
+            { "cell": ["L1", "L1"] },
+            { "cell": ["LDP", "LDP"] },
+            { "cell": ["LOK", "LOK"] },
+            { "cell": ["LZ", "LZ"] },
+            { "cell": ["MKA", "MKA"] },
+            { "cell": ["MM", "MM"] },
+            { "cell": ["MMY", "MMY"] },
+            { "cell": ["MRL", "MRL"] },
+            { "cell": ["N", "N"] },
+            { "cell": ["NA", "NA"] },
+            { "cell": ["NR", "NR"] },
+            { "cell": ["NRE", "NRE"] },
+            { "cell": ["P", "P"] },
+            { "cell": ["PB", "PB"] },
+            { "cell": ["PH", "PH"] },
+            { "cell": ["PL", "PL"] },
+            { "cell": ["PN", "PN"] },
+            { "cell": ["Q", "Q"] },
+            { "cell": ["QL", "QL"] },
+            { "cell": ["R", "R"] },
+            { "cell": ["RL", "RL"] },
+            { "cell": ["ROAD", "ROAD"] },
+            { "cell": ["RR60", "RR60"] },
+            { "cell": ["RTL", "RTL"] },
+            { "cell": ["S", "S"] },
+            { "cell": ["SCT", "SCT"] },
+            { "cell": ["SM", "SM"] },
+            { "cell": ["ST", "ST"] },
+            { "cell": ["T", "T"] },
+            { "cell": ["TT", "TT"] },
+            { "cell": ["V", "V"] },
+            { "cell": ["VL", "VL"] },
+            { "cell": ["W", "W"] },
+            { "cell": ["WH", "WH"] },
+            { "cell": ["X", "X"] },
+            { "cell": ["XR", "XR"] },
+            { "cell": ["XRB", "XRB"] },
+            { "cell": ["Y", "Y"] }
+        ]
+    }
+};
+
+// Call the function with the input JSON
+var result = AurizonBearingAcousticsToFleetOneBearingAcousticsJSON(json);
+return result;
