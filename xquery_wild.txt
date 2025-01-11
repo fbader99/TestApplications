@@ -1,0 +1,557 @@
+xquery version "1.0" encoding "utf-8";
+
+(:: OracleAnnotationVersion "1.0" ::)
+
+declare namespace wil="http://pacificnational.com.au/FleetOneWheelImpactLoad";
+(:: import schema at "../schema/FleetOneWheelImpact_JSON.xsd" ::)
+declare namespace wm="https://integration.aurizon.com.au/schema/wayside_measurement_wild/v1.0.2";
+(:: import schema at "../schema/Wayside_Measurement_Wheel_Impact_Load__v1.0.2.xsd" ::)
+
+declare variable $AurizonWheelImpactLoad as element() (:: schema-element(wm:WaysideMeasurementWheelImpactLoad) ::) external;
+
+declare function local:left-pad-string-to-length
+  ( $stringToPad as xs:string? ,
+    $padChar as xs:string ,
+    $length as xs:integer )  as xs:string {
+
+    let $paddedString := string-join((for $i in (1 to $length) return $padChar, $stringToPad),'')
+    return
+      substring($paddedString, (fn:string-length($paddedString) - $length + 1), $length)
+};
+
+declare function local:generateWagonCheckSum($inputWagonClass as xs:string, $inputWagonNumber as xs:string) as xs:string {
+    (: Format input :)
+    let $wagonClass := replace(replace($inputWagonClass,'\s+$',''),'^\s+','') (: Remove leading and trailing spaces :)
+    let $wagonNumber := replace(replace($inputWagonNumber,'\s+$',''),'^\s+','') (: Remove leading and trailing spaces :)
+    return
+      (: Validate input :)
+      if(fn:matches($wagonClass, '^[A-Z]{1,4}$') and fn:matches($wagonNumber, '^[0-9]{5}$')) then
+  
+        let $albet := ('A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z')
+        let $checkSumChars := ('A','B','C','D','E','F','G','H','X','J','K','L','M','N','Y','P','Q','R','S','T','U','V','W','X','Y','Z') 
+        (: $checkSumChars is like the alphabet except I is replaced with X, O with Y:)
+        let $classSum := sum( for $i in (1 to fn:string-length($wagonClass)) return $i * fn:index-of($albet,fn:substring($wagonClass,$i,1)))
+        let $numSum := sum( for $i in (1 to fn:string-length($wagonNumber)) return ($i + 4) * xs:int(fn:substring($wagonNumber,$i,1)))
+        let $index := (($classSum + $numSum) mod 23) + 1
+        
+        return $checkSumChars[$index]
+      else ''
+};
+
+declare function local:AurizonWheelImpactLoad_to_FleetOneWheelImpactLoadJSON($AurizonWheelImpactLoad as element() (:: schema-element(wm:WaysideMeasurementWheelImpactLoad) ::)) as element() (:: schema-element(wil:FleetOneWheelImpactLoad) ::) {
+    <wil:FleetOneWheelImpactLoad>
+        <wil:WaysideMeasurementWheelImpactLoad>
+            <wil:Head>
+                <wil:Reference>
+                    <wil:Identity>{fn:data($AurizonWheelImpactLoad/wm:Head/wm:Reference/wm:Identity)}</wil:Identity>
+                    <wil:DateTime>{fn:data($AurizonWheelImpactLoad/wm:Head/wm:Reference/wm:DateTime)}</wil:DateTime>
+                </wil:Reference>
+                <wil:Sender>
+                    {
+                        if ($AurizonWheelImpactLoad/wm:Head/wm:Sender/wm:Identity)
+                        then <wil:Identity>{fn:data($AurizonWheelImpactLoad/wm:Head/wm:Sender/wm:Identity)}</wil:Identity>
+                        else ()
+                    }
+                    <wil:Name>{fn:data($AurizonWheelImpactLoad/wm:Head/wm:Sender/wm:Name)}</wil:Name>
+                </wil:Sender>
+                <wil:Receivers>
+                {
+                    for $Receiver in $AurizonWheelImpactLoad/wm:Head/wm:Receivers/wm:Receiver
+                    return
+                    <wil:Receiver>
+                        <wil:Identity>{fn:data($Receiver/wm:Identity)}</wil:Identity>
+                        <wil:Name>{fn:data($Receiver/wm:Name)}</wil:Name>
+                        <wil:Role>{fn:data($Receiver/wm:Role)}</wil:Role>
+                    </wil:Receiver>
+                }
+                </wil:Receivers>
+            </wil:Head>
+            <wil:Body>
+                <wil:System>
+                    <wil:Source>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:System/wm:Source)}</wil:Source>
+                    <wil:Vendor>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:System/wm:Vendor)}</wil:Vendor>
+                    <wil:Maintainer>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:System/wm:Maintainer)}</wil:Maintainer>
+                    <wil:Application>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:System/wm:Application)}</wil:Application>
+                    {
+                        if ($AurizonWheelImpactLoad/wm:Body/wm:System/wm:SoftwareVersion)
+                        then <wil:SoftwareVersion>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:System/wm:SoftwareVersion)}</wil:SoftwareVersion>
+                        else ()
+                    }
+                    {
+                        if ($AurizonWheelImpactLoad/wm:Body/wm:System/wm:FirmwareVersion)
+                        then <wil:FirmwareVersion>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:System/wm:FirmwareVersion)}</wil:FirmwareVersion>
+                        else ()
+                    }
+                    {
+                        if ($AurizonWheelImpactLoad/wm:Body/wm:System/wm:HardwareVersion)
+                        then <wil:HardwareVersion>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:System/wm:HardwareVersion)}</wil:HardwareVersion>
+                        else ()
+                    }
+                </wil:System>
+                <wil:Location>
+                    {
+                        if ($AurizonWheelImpactLoad/wm:Body/wm:Location/wm:Identity)
+                        then <wil:Identity>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:Location/wm:Identity)}</wil:Identity>
+                        else ()
+                    }
+                    <wil:Name>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:Location/wm:Name)}</wil:Name>
+                </wil:Location>
+                {
+                    if ($AurizonWheelImpactLoad/wm:Body/wm:Track)
+                    then <wil:Track>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:Track)}</wil:Track>
+                    else ()
+                }
+                {
+                    if ($AurizonWheelImpactLoad/wm:Body/wm:Direction)
+                    then <wil:Direction>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:Direction)}</wil:Direction>
+                    else ()
+                }
+                <wil:RowCreatedUTCDateTime>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:RowCreatedUTCDateTime)}</wil:RowCreatedUTCDateTime>
+                {
+                    if ($AurizonWheelImpactLoad/wm:Body/wm:Start)
+                    then <wil:Start>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:Start)}</wil:Start>
+                    else ()
+                }
+                {
+                    if ($AurizonWheelImpactLoad/wm:Body/wm:End)
+                    then <wil:End>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:End)}</wil:End>
+                    else ()
+                }
+                <wil:Service>
+                    <!--<wil:Reference>
+                        <wil:Identity></wil:Identity>
+                        <wil:Date></wil:Date>
+                        <wil:TrainNumber></wil:TrainNumber>
+                        <wil:UTCTrainUID></wil:UTCTrainUID>
+                        <wil:UTCTrainNumber></wil:UTCTrainNumber>
+                    </wil:Reference>-->
+                    {
+                        if ($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:RollingStocks)
+                        then <wil:RollingStocks>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:RollingStocks)}</wil:RollingStocks>
+                        else ()
+                    }
+                    <!--<wil:Platforms></wil:Platforms>-->
+                    {
+                        if ($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:Axles)
+                        then <wil:Axles>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:Axles)}</wil:Axles>
+                        else ()
+                    }
+                    {
+                        if ($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:Length)
+                        then <wil:Length>
+                            <wil:Value>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:Length/wm:Value)}</wil:Value>
+                            <wil:Unit>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:Length/wm:Unit)}</wil:Unit></wil:Length>
+                        else ()
+                    }
+                    {
+                        if ($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:Speed)
+                        then <wil:Speed>
+                            <wil:Value>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:Speed/wm:Value)}</wil:Value>
+                            <wil:Unit>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:Speed/wm:Unit)}</wil:Unit></wil:Speed>
+                        else ()
+                    }
+                    {
+                        if ($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:EntrySpeed)
+                        then <wil:EntrySpeed>
+                            <wil:Value>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:EntrySpeed/wm:Value)}</wil:Value>
+                            <wil:Unit>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:EntrySpeed/wm:Unit)}</wil:Unit></wil:EntrySpeed>
+                        else ()
+                    }
+                    {
+                        if ($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:ExitSpeed)
+                        then <wil:ExitSpeed>
+                            <wil:Value>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:ExitSpeed/wm:Value)}</wil:Value>
+                            <wil:Unit>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:ExitSpeed/wm:Unit)}</wil:Unit>
+                        </wil:ExitSpeed>
+                        else ()
+                    }
+                    {
+                        if ($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:Mass)
+                        then
+                        <wil:Mass>
+                            <wil:Value>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:Mass/wm:Value)}</wil:Value>
+                            <wil:Unit>{fn:data($AurizonWheelImpactLoad/wm:Body/wm:Service/wm:Mass/wm:Unit)}</wil:Unit>
+                        </wil:Mass>
+                        else ()
+                    }
+                    <wil:Rollingstock>
+                    {
+                        for $Item in $AurizonWheelImpactLoad/wm:Body/wm:Service/wm:Rollingstock/wm:Item
+                        return
+                        <wil:Item>
+                            <wil:Sequence>{fn:data($Item/wm:Sequence)}</wil:Sequence>
+                            {
+                                let $VehicleClass := fn:replace($Item/wm:Identity/wm:Class,'\s+','')
+                                let $isLoco := (dvmtr:lookup("BI.Common/resources/dvm/VehicleIDCodes.dvm", "LS_LC_CODE", $VehicleClass, "Vehicle_ID", "") != "")
+                                return
+                                if($Item/wm:Identity)
+                                then
+                                    if($isLoco)
+                                    then
+                                        (: Loco mapping :)
+                                        <wil:Identity>
+                                            <wil:Class>{ $VehicleClass }</wil:Class>
+                                            <wil:Number>{ fn:concat(' ', local:left-pad-string-to-length(fn:replace($Item/wm:Identity/wm:Number,'\s+',''),'0', 6)) }</wil:Number>
+                                            {
+                                                if ($Item/wm:Identity/wm:AEI)
+                                                then <wil:AEI>{fn:data($Item/wm:Identity/wm:AEI)}</wil:AEI>
+                                                else ()
+                                            }
+                                        </wil:Identity>
+                                    else
+                                        let $WagonNumberClean := fn:replace($Item/wm:Identity/wm:Number,'[a-z]','') (: Wagon Number with multi-pack id removed :)
+                                        let $WagonNumber := local:left-pad-string-to-length($WagonNumberClean,'0', 5) (: Pad with zeroes and left trim wagon number up to length of 5 chars :)
+                                        return
+                                        (: Wagon mapping :)
+                                        <wil:Identity>
+                                            <wil:Class>{ $VehicleClass }</wil:Class>
+                                            <wil:Number>{ $WagonNumber }</wil:Number>
+                                            {
+                                                if ($Item/wm:Identity/wm:CheckLetter)
+                                                then <wil:CheckLetter>{fn:data($Item/wm:Identity/wm:CheckLetter)}</wil:CheckLetter>
+                                                else <wil:CheckLetter>{local:generateWagonCheckSum($VehicleClass,$WagonNumber)}</wil:CheckLetter>
+                                            }
+                                            {
+                                                if ($Item/wm:Identity/wm:AEI)
+                                                then <wil:AEI>{fn:data($Item/wm:Identity/wm:AEI)}</wil:AEI>
+                                                else ()
+                                            }
+                                        </wil:Identity>
+                                else if ($Item/wm:Unidentified)
+                                then
+                                    <wil:Unidentified>
+                                        <wil:Reason>
+                                            <wil:Type>{ data($Item/wm:Unidentified/wm:Reason/wm:Type) }</wil:Type>
+                                            <wil:Detail>{ data($Item/wm:Unidentified/wm:Reason/wm:Detail) }</wil:Detail>
+                                        </wil:Reason>
+                                    </wil:Unidentified>
+                                else()
+                            }
+                            {
+                                if ($Item/wm:Orientation)
+                                then <wil:Orientation>{fn:data($Item/wm:Orientation)}</wil:Orientation>
+                                else ()
+                            }
+                            {
+                                if (fn:count($Item/wm:Axles) > 0)
+                                then <wil:Axles>{fn:sum($Item/wm:Axles)}</wil:Axles>
+                                else ()
+                            }
+                            <wil:Mass>
+                                <wil:Operational>
+                                    <wil:Value>{fn:data($Item/wm:Mass/wm:Operational/wm:Value)}</wil:Value>
+                                    <wil:Unit>{fn:data($Item/wm:Mass/wm:Operational/wm:Unit)}</wil:Unit></wil:Operational>
+                                {
+                                    if ($Item/wm:Mass/wm:Left)
+                                    then <wil:Left>
+                                        <wil:Value>{fn:data($Item/wm:Mass/wm:Left/wm:Value)}</wil:Value>
+                                        <wil:Unit>{fn:data($Item/wm:Mass/wm:Left/wm:Unit)}</wil:Unit></wil:Left>
+                                    else ()
+                                }
+                                {
+                                    if ($Item/wm:Mass/wm:Right)
+                                    then <wil:Right>
+                                        <wil:Value>{fn:data($Item/wm:Mass/wm:Right/wm:Value)}</wil:Value>
+                                        <wil:Unit>{fn:data($Item/wm:Mass/wm:Right/wm:Unit)}</wil:Unit></wil:Right>
+                                    else ()
+                                }
+                            </wil:Mass>
+                            {
+                                if ($Item/wm:LoadBalance)
+                                then <wil:LoadBalance>
+                                    {
+                                        if ($Item/wm:LoadBalance/wm:Lateral)
+                                        then <wil:Lateral>{fn:data($Item/wm:LoadBalance/wm:Lateral)}</wil:Lateral>
+                                        else ()
+                                    }
+                                    {
+                                        if ($Item/wm:LoadBalance/wm:Vertical)
+                                        then <wil:Vertical>{fn:data($Item/wm:LoadBalance/wm:Vertical)}</wil:Vertical>
+                                        else ()
+                                    }
+                                    {
+                                        if ($Item/wm:LoadBalance/wm:Diagonal)
+                                        then <wil:Diagonal>{fn:data($Item/wm:LoadBalance/wm:Diagonal)}</wil:Diagonal>
+                                        else ()
+                                    }</wil:LoadBalance>
+                                else ()
+                            }
+                            <wil:Bogies>
+                            {
+                                for $Bogie in $Item/wm:Bogies/wm:Bogie
+                                return
+                                <wil:Bogie>
+                                    <wil:Sequence>{fn:data($Bogie/wm:Sequence)}</wil:Sequence>
+                                    {
+                                        if ($Bogie/wm:Mass)
+                                        then <wil:Mass>
+                                            <wil:Operational>
+                                                <wil:Value>{fn:data($Bogie/wm:Mass/wm:Operational/wm:Value)}</wil:Value>
+                                                <wil:Unit>{fn:data($Bogie/wm:Mass/wm:Operational/wm:Unit)}</wil:Unit>
+                                            </wil:Operational>
+                                            {
+                                                if ($Bogie/wm:Mass/wm:Left)
+                                                then <wil:Left>
+                                                    <wil:Value>{fn:data($Bogie/wm:Mass/wm:Left/wm:Value)}</wil:Value>
+                                                    <wil:Unit>{fn:data($Bogie/wm:Mass/wm:Left/wm:Unit)}</wil:Unit></wil:Left>
+                                                else ()
+                                            }
+                                            {
+                                                if ($Bogie/wm:Mass/wm:Right)
+                                                then <wil:Right>
+                                                    <wil:Value>{fn:data($Bogie/wm:Mass/wm:Right/wm:Value)}</wil:Value>
+                                                    <wil:Unit>{fn:data($Bogie/wm:Mass/wm:Right/wm:Unit)}</wil:Unit></wil:Right>
+                                                else ()
+                                            }
+                                        </wil:Mass>
+                                        else ()
+                                    }
+                                    <wil:LoadBalance>
+                                        {
+                                            if ($Bogie/wm:LoadBalance/wm:Lateral)
+                                            then <wil:Lateral>{fn:data($Bogie/wm:LoadBalance/wm:Lateral)}</wil:Lateral>
+                                            else ()
+                                        }
+                                        {
+                                            if ($Bogie/wm:LoadBalance/wm:Vertical)
+                                            then <wil:Vertical>{fn:data($Bogie/wm:LoadBalance/wm:Vertical)}</wil:Vertical>
+                                            else ()
+                                        }
+                                        {
+                                            if ($Bogie/wm:LoadBalance/wm:Diagonal)
+                                            then <wil:Diagonal>{fn:data($Bogie/wm:LoadBalance/wm:Diagonal)}</wil:Diagonal>
+                                            else ()
+                                        }
+                                    </wil:LoadBalance>
+                                    <wil:Axles>
+                                    {
+                                        for $Axle in $Bogie/wm:Axles/wm:Axle
+                                        return
+                                        <wil:Axle>
+                                            <wil:Sequence>{fn:data($Axle/wm:Sequence)}</wil:Sequence>
+                                            <wil:TrainSequence>{fn:data($Axle/wm:TrainSequence)}</wil:TrainSequence>
+                                            {
+                                                if ($Axle/wm:VehicleSequence)
+                                                then <wil:VehicleSequence>{fn:data($Axle/wm:VehicleSequence)}</wil:VehicleSequence>
+                                                else ()
+                                            }
+                                            {
+                                                if ($Bogie/wm:Axles/wm:Axle/wm:Speed)
+                                                then <wil:Speed>
+                                                    <wil:Value>{fn:data($Axle/wm:Speed/wm:Value)}</wil:Value>
+                                                    <wil:Unit>{fn:data($Axle/wm:Speed/wm:Unit)}</wil:Unit></wil:Speed>
+                                                else ()
+                                            }
+                                            {
+                                                if ($Axle/wm:Distance)
+                                                then <wil:Distance>
+                                                    <wil:Value>{fn:data($Axle/wm:Distance/wm:Value)}</wil:Value>
+                                                    <wil:Unit>{fn:data($Axle/wm:Distance/wm:Unit)}</wil:Unit></wil:Distance>
+                                                else ()
+                                            }
+                                            {
+                                                if ($Axle/wm:Mass)
+                                                then <wil:Mass>
+                                                    <wil:Operational>
+                                                        <wil:Value>{fn:data($Axle/wm:Mass/wm:Operational/wm:Value)}</wil:Value>
+                                                        <wil:Unit>{fn:data($Axle/wm:Mass/wm:Operational/wm:Unit)}</wil:Unit>
+                                                    </wil:Operational>
+                                                    {
+                                                        if ($Axle/wm:Mass/wm:Left)
+                                                        then <wil:Left>
+                                                            <wil:Value>{fn:data($Axle/wm:Mass/wm:Left/wm:Value)}</wil:Value>
+                                                            <wil:Unit>{fn:data($Axle/wm:Mass/wm:Left/wm:Unit)}</wil:Unit></wil:Left>
+                                                        else ()
+                                                    }
+                                                    {
+                                                        if ($Axle/wm:Mass/wm:Right)
+                                                        then <wil:Right>
+                                                            <wil:Value>{fn:data($Axle/wm:Mass/wm:Right/wm:Value)}</wil:Value>
+                                                            <wil:Unit>{fn:data($Axle/wm:Mass/wm:Right/wm:Unit)}</wil:Unit></wil:Right>
+                                                        else ()
+                                                    }
+                                                </wil:Mass>
+                                                else ()
+                                            }
+                                            <wil:LoadBalance>
+                                                {
+                                                    if ($Axle/wm:LoadBalance/wm:Lateral)
+                                                    then <wil:Lateral>{fn:data($Axle/wm:LoadBalance/wm:Lateral)}</wil:Lateral>
+                                                    else ()
+                                                }
+                                                {
+                                                    if ($Axle/wm:LoadBalance/wm:Vertical)
+                                                    then <wil:Vertical>{fn:data($Axle/wm:LoadBalance/wm:Vertical)}</wil:Vertical>
+                                                    else ()
+                                                }
+                                                {
+                                                    if ($Axle/wm:LoadBalance/wm:Diagonal)
+                                                    then <wil:Diagonal>{fn:data($Axle/wm:LoadBalance/wm:Diagonal)}</wil:Diagonal>
+                                                    else ()
+                                                }
+                                            </wil:LoadBalance>
+                                            <wil:Force>
+                                                {
+                                                    if ($Axle/wm:Force/wm:Peak)
+                                                    then 
+                                                    <wil:Peak>
+                                                        {
+                                                            if ($Axle/wm:Force/wm:Peak/wm:Max)
+                                                            then <wil:Max>
+                                                                <wil:Value>{fn:data($Axle/wm:Force/wm:Peak/wm:Max/wm:Value)}</wil:Value>
+                                                                <wil:Unit>{fn:data($Axle/wm:Force/wm:Peak/wm:Max/wm:Unit)}</wil:Unit></wil:Max>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            if ($Axle/wm:Force/wm:Peak/wm:Left)
+                                                            then <wil:Left>
+                                                                <wil:Value>{fn:data($Axle/wm:Force/wm:Peak/wm:Left/wm:Value)}</wil:Value>
+                                                                <wil:Unit>{fn:data($Bogie/wm:Axles/wm:Axle/wm:Force/wm:Peak/wm:Left/wm:Unit)}</wil:Unit></wil:Left>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            if ($Axle/wm:Force/wm:Peak/wm:Right)
+                                                            then <wil:Right>
+                                                                <wil:Value>{fn:data($Axle/wm:Force/wm:Peak/wm:Right/wm:Value)}</wil:Value>
+                                                                <wil:Unit>{fn:data($Axle/wm:Force/wm:Peak/wm:Right/wm:Unit)}</wil:Unit></wil:Right>
+                                                            else ()
+                                                        }
+                                                    </wil:Peak>
+                                                    else ()
+                                                }
+                                                {
+                                                    if ($Axle/wm:Force/wm:Normalised)
+                                                    then 
+                                                    <wil:Normalised>
+                                                        {
+                                                            if ($Axle/wm:Force/wm:Normalised/wm:Max)
+                                                            then <wil:Max>
+                                                                <wil:Value>{fn:data($Axle/wm:Force/wm:Normalised/wm:Max/wm:Value)}</wil:Value>
+                                                                <wil:Unit>{fn:data($Axle/wm:Force/wm:Normalised/wm:Max/wm:Unit)}</wil:Unit></wil:Max>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            if ($Axle/wm:Force/wm:Normalised/wm:Left)
+                                                            then <wil:Left>
+                                                                <wil:Value>{fn:data($Axle/wm:Force/wm:Normalised/wm:Left/wm:Value)}</wil:Value>
+                                                                <wil:Unit>{fn:data($Axle/wm:Force/wm:Normalised/wm:Left/wm:Unit)}</wil:Unit></wil:Left>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            if ($Axle/wm:Force/wm:Normalised/wm:Right)
+                                                            then <wil:Right>
+                                                                <wil:Value>{fn:data($Axle/wm:Force/wm:Normalised/wm:Right/wm:Value)}</wil:Value>
+                                                                <wil:Unit>{fn:data($Axle/wm:Force/wm:Normalised/wm:Right/wm:Unit)}</wil:Unit></wil:Right>
+                                                            else ()
+                                                        }
+                                                    </wil:Normalised>
+                                                    else ()
+                                                }
+                                                {
+                                                    if ($Axle/wm:Force/wm:Dynamic)
+                                                    then 
+                                                    <wil:Dynamic>
+                                                        {
+                                                            if ($Axle/wm:Force/wm:Dynamic/wm:Max)
+                                                            then <wil:Max>
+                                                                <wil:Value>{fn:data($Axle/wm:Force/wm:Dynamic/wm:Max/wm:Value)}</wil:Value>
+                                                                <wil:Unit>{fn:data($Axle/wm:Force/wm:Dynamic/wm:Max/wm:Unit)}</wil:Unit></wil:Max>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            if ($Axle/wm:Force/wm:Dynamic/wm:Left)
+                                                            then <wil:Left>
+                                                                <wil:Value>{fn:data($Axle/wm:Force/wm:Dynamic/wm:Left/wm:Value)}</wil:Value>
+                                                                <wil:Unit>{fn:data($Axle/wm:Force/wm:Dynamic/wm:Left/wm:Unit)}</wil:Unit></wil:Left>
+                                                            else ()
+                                                        }
+                                                        {
+                                                            if ($Axle/wm:Force/wm:Dynamic/wm:Right)
+                                                            then <wil:Right>
+                                                                <wil:Value>{fn:data($Axle/wm:Force/wm:Dynamic/wm:Right/wm:Value)}</wil:Value>
+                                                                <wil:Unit>{fn:data($Axle/wm:Force/wm:Dynamic/wm:Right/wm:Unit)}</wil:Unit></wil:Right>
+                                                            else ()
+                                                        }
+                                                    </wil:Dynamic>
+                                                    else ()
+                                                }
+                                            </wil:Force>
+                                            
+                                            {
+                                                if ($Axle/wm:DynamicCoefficient)
+                                                then
+                                                <wil:DynamicCoefficient>
+                                                    <wil:Left>{fn:data($Axle/wm:DynamicCoefficient/wm:Left)}</wil:Left>
+                                                    <wil:Right>{fn:data($Axle/wm:DynamicCoefficient/wm:Right)}</wil:Right>
+                                                </wil:DynamicCoefficient>
+                                                else ()
+                                            }
+                                            {
+                                                if ($Axle/wm:Wheels)
+                                                then 
+                                                <wil:Wheels>
+                                                    {
+                                                        for $Wheel in $Axle/wm:Wheels/wm:Wheel
+                                                        return 
+                                                        <wil:Wheel>
+                                                            <wil:Sequence>{fn:data($Wheel/wm:Sequence)}</wil:Sequence>
+                                                            {
+                                                                if ($Wheel/wm:Side)
+                                                                then <wil:Side>{fn:data($Wheel/wm:Side)}</wil:Side>
+                                                                else ()
+                                                            }
+                                                            {
+                                                                if ($Wheel/wm:Mass)
+                                                                then <wil:Mass>
+                                                                    <wil:Value>{fn:data($Wheel/wm:Mass/wm:Value)}</wil:Value>
+                                                                    <wil:Unit>{fn:data($Wheel/wm:Mass/wm:Unit)}</wil:Unit></wil:Mass>
+                                                                else ()
+                                                            }
+                                                            {
+                                                                if ($Wheel/wm:Force)
+                                                                then <wil:Force>
+                                                                    {
+                                                                        if ($Wheel/wm:Force/wm:Peak)
+                                                                        then <wil:Peak>
+                                                                            <wil:Value>{fn:data($Wheel/wm:Force/wm:Peak/wm:Value)}</wil:Value>
+                                                                            <wil:Unit>{fn:data($Wheel/wm:Force/wm:Peak/wm:Unit)}</wil:Unit></wil:Peak>
+                                                                        else ()
+                                                                    }
+                                                                    {
+                                                                        if ($Wheel/wm:Force/wm:Normalised)
+                                                                        then <wil:Normalised>
+                                                                            <wil:Value>{fn:data($Wheel/wm:Force/wm:Normalised/wm:Value)}</wil:Value>
+                                                                            <wil:Unit>{fn:data($Wheel/wm:Force/wm:Normalised/wm:Unit)}</wil:Unit></wil:Normalised>
+                                                                        else ()
+                                                                    }
+                                                                    {
+                                                                        if ($Wheel/wm:Force/wm:Dynamic)
+                                                                        then <wil:Dynamic>
+                                                                            <wil:Value>{fn:data($Wheel/wm:Force/wm:Dynamic/wm:Value)}</wil:Value>
+                                                                            <wil:Unit>{fn:data($Wheel/wm:Force/wm:Dynamic/wm:Unit)}</wil:Unit></wil:Dynamic>
+                                                                        else ()
+                                                                    }
+                                                                </wil:Force>
+                                                                else ()
+                                                            }
+                                                            </wil:Wheel>
+                                                    }
+                                                </wil:Wheels>
+                                                else ()
+                                            }
+                                        </wil:Axle>
+                                    }
+                                    </wil:Axles>
+                                </wil:Bogie>
+                            }
+                            </wil:Bogies>
+                        </wil:Item>
+                    }
+                    </wil:Rollingstock>
+                </wil:Service>
+            </wil:Body>
+        </wil:WaysideMeasurementWheelImpactLoad>
+    </wil:FleetOneWheelImpactLoad>
+};
+
+local:AurizonWheelImpactLoad_to_FleetOneWheelImpactLoadJSON($AurizonWheelImpactLoad)
