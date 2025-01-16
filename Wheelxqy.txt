@@ -1,0 +1,213 @@
+xquery version "1.0" encoding "utf-8";
+
+(:: OracleAnnotationVersion "1.0" ::)
+
+declare namespace fle1="http://pacificnational.com.au/IEMWheelProfile";
+(:: import schema at "../schema/FleetOneWheelsetModel_JSON.xsd" ::)
+declare namespace iem="http://pacificnational.com.au/WheelSetModel";
+(:: import schema at "../schema/WheelSetModelling.xsd" ::)
+
+declare variable $WheelSetModel as element() (:: schema-element(iem:WheelSetModel) ::) external;
+declare variable $FileName as xs:string external;
+
+declare function local:trim
+  ( $arg as xs:string? )  as xs:string {
+
+   replace(replace($arg,'\s+$',''),'^\s+','')
+ } ;
+
+declare function local:right-pad-string-to-length
+  ( $stringToPad as xs:string? ,
+    $padChar as xs:string ,
+    $length as xs:integer )  as xs:string {
+
+    let $paddedString := string-join(($stringToPad, for $i in (1 to $length - fn:string-length($stringToPad)) return $padChar),'')
+    return
+      substring($paddedString, 1, $length)
+};
+
+
+declare function local:left-pad-string-to-length
+  ( $stringToPad as xs:string? ,
+    $padChar as xs:string ,
+    $length as xs:integer )  as xs:string {
+
+    let $paddedString := string-join((for $i in (1 to $length) return $padChar, $stringToPad),'')
+    return
+      substring($paddedString, (fn:string-length($paddedString) - $length + 1), $length)
+};
+
+declare function local:generateWagonCheckSum($inputWagonClass as xs:string, $inputWagonNumber as xs:string) as xs:string {
+    (: Format input :)
+    let $wagonClass := replace(replace($inputWagonClass,'\s+$',''),'^\s+','') (: Remove leading and trailing spaces :)
+    let $wagonNumber := replace(replace($inputWagonNumber,'\s+$',''),'^\s+','')
+    return
+      (: Validate input :)
+      if(fn:matches($wagonClass, '^[A-Z]{1,4}$') and fn:matches($wagonNumber, '^[0-9]{5}$')) then
+  
+        let $albet := ('A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z')
+        let $checkSumChars := ('A','B','C','D','E','F','G','H','X','J','K','L','M','N','Y','P','Q','R','S','T','U','V','W','X','Y','Z') 
+        (: $checkSumChars is like the alphabet except I is replaced with X, O with Y:)
+        let $classSum := sum( for $i in (1 to fn:string-length($wagonClass)) return $i * fn:index-of($albet,fn:substring($wagonClass,$i,1)))
+        let $numSum := sum( for $i in (1 to fn:string-length($wagonNumber)) return ($i + 4) * xs:int(fn:substring($wagonNumber,$i,1)))
+        let $index := (($classSum + $numSum) mod 23) + 1
+        
+        return $checkSumChars[$index]
+      else ''
+};
+
+declare function local:format-wagonId($input as xs:string) as xs:string {
+  (: input: "FDDY 00001" output: "FDDY00001U" :)
+  (: input: "ECA 00098" output: "ECA 00098U" :)
+  (: input "ER 00207D" output: ""ER  00207D" NOTE: Not working, output only contains one space separating Class and Number :) 
+  
+  (: Split on space character :)
+  let $parts := fn:tokenize($input,'\s+')
+  let $wagonClass := local:right-pad-string-to-length(xs:string($parts[1]),'&#32;',4) (: rightpad with spaces up to 4 chars :)
+  let $wagonNumber := local:left-pad-string-to-length(xs:string($parts[2]),'0', 5) (: left pad string up to 5 chars :)
+
+  (: Concatenate wagon class + wagon identifier :)
+  return fn:concat($wagonClass,$wagonNumber,local:generateWagonCheckSum($wagonClass,$wagonNumber))
+};
+
+declare function local:func($WheelSetModel as element() (:: schema-element(iem:WheelSetModel) ::)) as element() (:: schema-element(fle1:IEMWheelProfile) ::) {
+    <fle1:IEMWheelProfile>
+      <fle1:IEMWheelProfileSystem>
+        <fle1:Head>
+          <fle1:Receivers>
+            <fle1:Receiver>
+              <fle1:Identity>PNQ</fle1:Identity>
+              <fle1:Name>PNQ</fle1:Name>
+              <fle1:Role>Operator</fle1:Role>
+            </fle1:Receiver>
+          </fle1:Receivers>
+          <fle1:Reference>
+            <fle1:DateTime>{fn:data($WheelSetModel/iem:headerBody/iem:TIME)}</fle1:DateTime>
+            <fle1:Identity>{$FileName}</fle1:Identity>
+          </fle1:Reference>
+          <fle1:Sender>
+            <fle1:Identity>IEM</fle1:Identity>
+            <fle1:Name>International Electronic Machines Corporation</fle1:Name>
+          </fle1:Sender>
+        </fle1:Head>
+        <fle1:Body>
+          <fle1:System>
+            <fle1:Application>WPM</fle1:Application>
+            <fle1:Maintainer>IEM</fle1:Maintainer>
+            <fle1:Source>IEM</fle1:Source>
+            <fle1:Vendor>IEM</fle1:Vendor>
+          </fle1:System>
+            <fle1:Model>{fn:data($WheelSetModel/iem:headerBody/iem:MODEL)}</fle1:Model>
+            <fle1:Version>{fn:data($WheelSetModel/iem:headerBody/iem:VERSION)}</fle1:Version>
+            <fle1:Site>{fn:data($WheelSetModel/iem:headerBody/iem:SITE)}</fle1:Site>
+            <fle1:Time>{fn:data($WheelSetModel/iem:headerBody/iem:TIME)}</fle1:Time>
+            <fle1:Direction>{fn:data($WheelSetModel/iem:headerBody/iem:DIRECTION)}</fle1:Direction>
+          <fle1:RowCreatedUTCDateTime>{fn:data($WheelSetModel/iem:headerBody/iem:TIME)}</fle1:RowCreatedUTCDateTime>
+          <fle1:Service>
+              <fle1:Axles>{fn:data($WheelSetModel/iem:headerBody/iem:AXLES)}</fle1:Axles>
+            {
+                for $detailBody in $WheelSetModel/iem:detailBody
+                return 
+                <fle1:Axle>
+                    <fle1:AX_NO>{fn:data($detailBody/iem:AX_NO)}</fle1:AX_NO>
+                    <fle1:AX_VALID>{fn:data($detailBody/iem:AX_VALID)}</fle1:AX_VALID>
+                    <fle1:AX_TIME>{fn:data($detailBody/iem:AX_TIME)}</fle1:AX_TIME>
+                    <fle1:AX_SPEED>{fn:data($detailBody/iem:AX_SPEED)}</fle1:AX_SPEED>
+                    <fle1:AX_PITCH>{fn:data($detailBody/iem:AX_PITCH)}</fle1:AX_PITCH>
+                    <fle1:AX_TAG>
+                    {
+                        (: Check if tag is for a loco or wagon :)
+                        let $class := xs:string(fn:tokenize($detailBody/iem:AX_TAG/text(),'\s+')[1])
+                        let $locoClass := dvmtr:lookup("BI.Common/resources/dvm/VehicleIDCodes.dvm", "LS_LC_CODE", $class, "Vehicle_ID", "")
+                        return
+                            if($locoClass != "")
+                            then local:trim($detailBody/iem:AX_TAG) (: If LOCO, Leave as-is :)
+                            else local:format-wagonId($detailBody/iem:AX_TAG) (: If Wagon, Format as wagon ID :)
+                    }
+                    </fle1:AX_TAG>
+                    <fle1:AX_TAG_SIDE>{fn:data($detailBody/iem:AX_TAG_SIDE)}</fle1:AX_TAG_SIDE>
+                    <fle1:AX_LEADING>{fn:data($detailBody/iem:AX_LEADING)}</fle1:AX_LEADING>
+                    <fle1:AX_CAR_POS>{fn:data($detailBody/iem:AX_CAR_POS)}</fle1:AX_CAR_POS>
+                    <fle1:WP_WG>{fn:data($detailBody/iem:WP_WG)}</fle1:WP_WG>
+                    <fle1:WP_LD>{fn:data($detailBody/iem:WP_LD)}</fle1:WP_LD>
+                    <fle1:WP_LFH>{fn:data($detailBody/iem:WP_LFH)}</fle1:WP_LFH>
+                    <fle1:WP_LFT>{fn:data($detailBody/iem:WP_LFT)}</fle1:WP_LFT>
+                    <fle1:WP_LRT>{fn:data($detailBody/iem:WP_LRT)}</fle1:WP_LRT>
+                    <fle1:WP_LTH>{fn:data($detailBody/iem:WP_LTH)}</fle1:WP_LTH>
+                    <fle1:WP_LTT>{fn:data($detailBody/iem:WP_LTT)}</fle1:WP_LTT>
+                    <fle1:WP_LFA>{fn:data($detailBody/iem:WP_LFA)}</fle1:WP_LFA>
+                    <fle1:WP_LGT>{fn:data($detailBody/iem:WP_LGT)}</fle1:WP_LGT>
+                    <fle1:WP_LBUP>{fn:data($detailBody/iem:WP_LBUP)}</fle1:WP_LBUP>
+                    <fle1:WP_LTW>{fn:data($detailBody/iem:WP_LTW)}</fle1:WP_LTW>
+                    <fle1:WP_LWW>{fn:data($detailBody/iem:WP_LWW)}</fle1:WP_LWW>
+                    <fle1:WP_LRR>{fn:data($detailBody/iem:WP_LRR)}</fle1:WP_LRR>
+                    <fle1:WP_LAR>{fn:data($detailBody/iem:WP_LAR)}</fle1:WP_LAR>
+                    <fle1:WP_LFF>{fn:data($detailBody/iem:WP_LFF)}</fle1:WP_LFF>
+                    <fle1:WP_RD>{fn:data($detailBody/iem:WP_RD)}</fle1:WP_RD>
+                    <fle1:WP_RFH>{fn:data($detailBody/iem:WP_RFH)}</fle1:WP_RFH>
+                    <fle1:WP_RFT>{fn:data($detailBody/iem:WP_RFT)}</fle1:WP_RFT>
+                    <fle1:WP_RRT>{fn:data($detailBody/iem:WP_RRT)}</fle1:WP_RRT>
+                    <fle1:WP_RTH>{fn:data($detailBody/iem:WP_RTH)}</fle1:WP_RTH>
+                    <fle1:WP_RTT>{fn:data($detailBody/iem:WP_RTT)}</fle1:WP_RTT>
+                    <fle1:WP_RFA>{fn:data($detailBody/iem:WP_RFA)}</fle1:WP_RFA>
+                    <fle1:WP_RGT>{fn:data($detailBody/iem:WP_RGT)}</fle1:WP_RGT>
+                    <fle1:WP_RBUP>{fn:data($detailBody/iem:WP_RBUP)}</fle1:WP_RBUP>
+                    <fle1:WP_RTW>{fn:data($detailBody/iem:WP_RTW)}</fle1:WP_RTW>
+                    <fle1:WP_RWW>{fn:data($detailBody/iem:WP_RWW)}</fle1:WP_RWW>
+                    <fle1:WP_RRR>{fn:data($detailBody/iem:WP_RRR)}</fle1:WP_RRR>
+                    <fle1:WP_RAR>{fn:data($detailBody/iem:WP_RAR)}</fle1:WP_RAR>
+                    <fle1:WP_RFF>{fn:data($detailBody/iem:WP_RFF)}</fle1:WP_RFF>
+                    {
+                        (: Bugfix to address extra tabs/spaces in IEM source file. Add logic to check if the line is affected :)
+                        let $isBrakeDataCorrupt := fn:count(fn:tokenize($detailBody/iem:BB_RLSTS/text(),'\s+')) > 1
+                        let $brake := 
+                            if(fn:not($isBrakeDataCorrupt))
+                            then
+                            <brakeData>
+                                <fle1:BB_LUTH>{fn:data($detailBody/iem:BB_LUTH)}</fle1:BB_LUTH>
+                                <fle1:BB_LUSTS>{fn:data($detailBody/iem:BB_LUSTS)}</fle1:BB_LUSTS>
+                                <fle1:BB_RUTH>{fn:data($detailBody/iem:BB_RUTH)}</fle1:BB_RUTH>
+                                <fle1:BB_RUSTS>{fn:data($detailBody/iem:BB_RUSTS)}</fle1:BB_RUSTS>
+                                <fle1:BB_LLTH>{fn:data($detailBody/iem:BB_LLTH)}</fle1:BB_LLTH>
+                                <fle1:BB_LLSTS>{fn:data($detailBody/iem:BB_LLSTS)}</fle1:BB_LLSTS>
+                                <fle1:BB_RLTH>{fn:data($detailBody/iem:BB_RLTH)}</fle1:BB_RLTH>
+                                <fle1:BB_RLSTS>{fn:data($detailBody/iem:BB_RLSTS)}</fle1:BB_RLSTS>
+                            </brakeData>
+                            else ()
+                        return $brake/*
+                    }
+                    {
+                        for $axleProfile in $WheelSetModel/iem:profileBody
+                        where xs:integer($axleProfile/iem:AX_NO) = xs:integer($detailBody/iem:AX_NO)
+                        return
+                        <fle1:Profile>
+                          <fle1:wL_Size>{fn:data($axleProfile/iem:wL_Size)}</fle1:wL_Size>
+                          <fle1:wR_Size>{fn:data($axleProfile/iem:wR_Size)}</fle1:wR_Size>
+                          <fle1:w_ProfileL_x>{fn:data($axleProfile/iem:w_ProfileL_x)}</fle1:w_ProfileL_x>
+                          <fle1:w_ProfileL_y>{fn:data($axleProfile/iem:w_ProfileL_y)}</fle1:w_ProfileL_y>
+                          <fle1:w_ProfileR_x>{fn:data($axleProfile/iem:w_ProfileR_x)}</fle1:w_ProfileR_x>
+                          <fle1:w_ProfileR_y>{fn:data($axleProfile/iem:w_ProfileR_y)}</fle1:w_ProfileR_y>
+                        </fle1:Profile>
+                    }
+                </fle1:Axle>
+            }
+            {
+                for $profileBody in $WheelSetModel/iem:profileBody
+                return 
+                <fle1:Profiles>
+                    <fle1:AX_NO>{fn:data($profileBody/iem:AX_NO)}</fle1:AX_NO>
+                    <fle1:wL_Size>{fn:data($profileBody/iem:wL_Size)}</fle1:wL_Size>
+                    <fle1:wR_Size>{fn:data($profileBody/iem:wR_Size)}</fle1:wR_Size>
+                    <fle1:w_ProfileL_x>{fn:data($profileBody/iem:w_ProfileL_x)}</fle1:w_ProfileL_x>
+                    <fle1:w_ProfileL_y>{fn:data($profileBody/iem:w_ProfileL_y)}</fle1:w_ProfileL_y>
+                    <fle1:w_ProfileR_x>{fn:data($profileBody/iem:w_ProfileR_x)}</fle1:w_ProfileR_x>
+                    <fle1:w_ProfileR_y>{fn:data($profileBody/iem:w_ProfileR_y)}</fle1:w_ProfileR_y>
+                </fle1:Profiles>
+            }
+          </fle1:Service>
+        </fle1:Body>
+      </fle1:IEMWheelProfileSystem>
+    </fle1:IEMWheelProfile>
+};
+
+local:func($WheelSetModel)
