@@ -1,0 +1,174 @@
+<?xml version = '1.0' encoding = 'UTF-8'?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:nxsd="http://xmlns.oracle.com/pcbpel/nxsd"
+            xmlns:tns="http://pacificnational.com.au/WheelSetModel" targetNamespace="http://pacificnational.com.au/WheelSetModel"
+            elementFormDefault="qualified" attributeFormDefault="unqualified" nxsd:version="NXSD" nxsd:stream="chars"
+            nxsd:encoding="US-ASCII" nxsd:detectLoops="false">
+  <xsd:element name="WheelSetModel">
+    <xsd:complexType>
+      <xsd:sequence nxsd:choiceCondition="terminated" nxsd:terminatedBy="\t">
+        <xsd:element name="headerHeader" nxsd:startsWith="Rec_Type" minOccurs="0">
+          <xsd:complexType>
+            <xsd:sequence>
+              <xsd:element name="C1" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t" fixed="Rec_Type"/>
+              <xsd:element name="C2" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C3" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C4" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C5" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C6" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C7" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C8" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="${eol}"/>
+            </xsd:sequence>
+          </xsd:complexType>
+        </xsd:element>
+        <xsd:element name="headerBody" nxsd:startsWith="T" minOccurs="0" maxOccurs="unbounded">
+          <xsd:complexType>
+            <xsd:sequence>
+              <xsd:element name="Rec_Type" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t" fixed="T"/>
+              <xsd:element name="FILE_TYPE" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="MODEL" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="VERSION" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="SITE" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="TIME" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="DIRECTION" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="AXLES" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="${eol}"/>
+            </xsd:sequence>
+          </xsd:complexType>
+        </xsd:element>
+        <xsd:element name="detailHeader" nxsd:startsWith="Rec_Type" minOccurs="0">
+          <xsd:complexType>
+            <xsd:sequence>
+              <xsd:element name="C1" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t" fixed="Rec_Type"/>
+              <xsd:element name="C2" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C3" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C4" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C5" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C6" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C7" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C8" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C9" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C10" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C11" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C12" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C13" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C14" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C15" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C16" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C17" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C18" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C19" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C20" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C21" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C22" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C23" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C24" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C25" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C26" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C27" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C28" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C29" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C30" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C31" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C32" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C33" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C34" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C35" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C36" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C37" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C38" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C39" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C40" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C41" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C42" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C43" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C44" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C45" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C46" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C47" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="${eol}"/>
+            </xsd:sequence>
+          </xsd:complexType>
+        </xsd:element>
+        <xsd:element name="detailBody" nxsd:startsWith="A" minOccurs="0" maxOccurs="unbounded">
+          <xsd:complexType>
+            <xsd:sequence>
+              <xsd:element name="Rec_Type" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t" fixed="A"/>
+              <xsd:element name="AX_NO" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="AX_VALID" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="AX_TIME" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="AX_SPEED" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="AX_PITCH" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="AX_TAG" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="AX_TAG_SIDE" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="AX_LEADING" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="AX_CAR_POS" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_WG" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_LD" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_LFH" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_LFT" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_LRT" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_LTH" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_LTT" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_LFA" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_LGT" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_LBUP" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_LTW" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_LWW" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_LRR" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_LAR" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_LFF" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_RD" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_RFH" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_RFT" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_RRT" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_RTH" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_RTT" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_RFA" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_RGT" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_RBUP" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_RTW" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_RWW" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_RRR" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_RAR" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="WP_RFF" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="BB_LUTH" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="BB_LUSTS" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="BB_RUTH" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="BB_RUSTS" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="BB_LLTH" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="BB_LLSTS" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="BB_RLTH" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="BB_RLSTS" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="${eol}"/>
+            </xsd:sequence>
+          </xsd:complexType>
+        </xsd:element>
+        <xsd:element name="profileHeader" nxsd:startsWith="Rec_Type" minOccurs="0">
+          <xsd:complexType>
+            <xsd:sequence>
+              <xsd:element name="C1" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t" fixed="Rec_Type"/>
+              <xsd:element name="C2" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C3" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C4" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C5" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C6" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C7" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="C8" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="${eol}"/>
+            </xsd:sequence>
+          </xsd:complexType>
+        </xsd:element>
+        <xsd:element name="profileBody" nxsd:startsWith="P" minOccurs="0" maxOccurs="unbounded">
+          <xsd:complexType>
+            <xsd:sequence>
+              <xsd:element name="Rec_Type" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t" fixed="P"/>
+              <xsd:element name="AX_NO" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="wL_Size" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="wR_Size" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="w_ProfileL_x" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="w_ProfileL_y" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="w_ProfileR_x" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="\t"/>
+              <xsd:element name="w_ProfileR_y" type="xsd:string" nxsd:style="terminated" nxsd:terminatedBy="${eol}"/>
+            </xsd:sequence>
+          </xsd:complexType>
+        </xsd:element>
+      </xsd:sequence>
+    </xsd:complexType>
+  </xsd:element>
+</xsd:schema>
